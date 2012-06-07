@@ -297,12 +297,17 @@ void LandmarkCutHeuristic::validate_h_max() const {
 #endif
 }
 
-int LandmarkCutHeuristic::compute_heuristic(const State &state) {
+
+void LandmarkCutHeuristic::reset_operator_costs() {
     // TODO: Possibly put back in some kind of preferred operator mechanism.
     for (int i = 0; i < relaxed_operators.size(); i++) {
         RelaxedOperator &op = relaxed_operators[i];
         op.cost = op.base_cost * COST_MULTIPLIER;
     }
+}
+
+int LandmarkCutHeuristic::compute_heuristic(const State &state) {
+    reset_operator_costs();
 
     //cout << "*" << flush;
     int total_cost = 0;
@@ -359,6 +364,7 @@ int LandmarkCutHeuristic::compute_heuristic(const State &state) {
             cut[i]->cost -= cut_cost;
         //cout << "{" << cut_cost << "}" << flush;
         total_cost += cut_cost;
+        discovered_landmark(state, cut, cut_cost);
 
         first_exploration_incremental(cut);
         // validate_h_max();  // too expensive to use even in regular debug mode

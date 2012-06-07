@@ -105,15 +105,9 @@ struct RelaxedProposition {
 };
 
 class LandmarkCutHeuristic : public Heuristic {
-    std::vector<RelaxedOperator> relaxed_operators;
-    std::vector<std::vector<RelaxedProposition> > propositions;
-    RelaxedProposition artificial_precondition;
-    RelaxedProposition artificial_goal;
-    int num_propositions;
     AdaptiveQueue<RelaxedProposition *> priority_queue;
 
     virtual void initialize();
-    virtual int compute_heuristic(const State &state);
     void build_relaxed_operator(const Operator &op);
     void add_relaxed_operator(const std::vector<RelaxedProposition *> &precondition,
                               const std::vector<RelaxedProposition *> &effects,
@@ -136,6 +130,16 @@ class LandmarkCutHeuristic : public Heuristic {
 
     void mark_goal_plateau(RelaxedProposition *subgoal);
     void validate_h_max() const;
+protected:
+    std::vector<RelaxedOperator> relaxed_operators;
+    std::vector<std::vector<RelaxedProposition> > propositions;
+    RelaxedProposition artificial_precondition;
+    RelaxedProposition artificial_goal;
+    int num_propositions;
+    virtual void discovered_landmark(const State &/*state*/, std::vector<RelaxedOperator *> &/*landmark*/, int /*cost*/) {
+    }
+    virtual void reset_operator_costs();
+    virtual int compute_heuristic(const State &state);
 public:
     LandmarkCutHeuristic(const Options &opts);
     virtual ~LandmarkCutHeuristic();
