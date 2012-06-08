@@ -31,8 +31,9 @@ IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
     in_initial_state = false;
     bool h_dirty = false;
-    vector<int> &parent_operator_costs = node_operator_costs[StateProxy(&parent_state)];
-    vector<Landmark *> &parent_landmarks = node_landmarks[StateProxy(&parent_state)];
+    StateProxy parent_proxy = StateProxy(&parent_state);
+    vector<int> &parent_operator_costs = node_operator_costs[parent_proxy];
+    vector<Landmark *> &parent_landmarks = node_landmarks[parent_proxy];
     vector<Landmark *> &current_landmarks = node_landmarks[StateProxy(&state)];
     current_landmarks.reserve(parent_landmarks.size());
 
@@ -82,8 +83,8 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     LandmarkCutHeuristic::compute_heuristic(state);
 
     // remember operator costs
-    node_operator_costs[StateProxy(&state)] = vector<int>(relaxed_operators.size());
     vector<int> &operator_costs = node_operator_costs[StateProxy(&state)];
+    operator_costs.resize(relaxed_operators.size());
     for (int i=0; i < relaxed_operators.size(); ++i) {
         operator_costs[i] = relaxed_operators[i].cost;
     }

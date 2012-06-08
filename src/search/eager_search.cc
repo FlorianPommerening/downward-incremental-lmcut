@@ -152,7 +152,10 @@ int EagerSearch::step() {
             // We have not seen this state before.
             // Evaluate and create a new node.
             for (size_t i = 0; i < heuristics.size(); i++)
-                heuristics[i]->evaluate(succ_state);
+
+                // HACK changed succ_state to succ_node.get_state()
+                // heuristics[i]->evaluate(succ_state);
+                heuristics[i]->evaluate(succ_node.get_state());
             succ_node.clear_h_dirty();
             search_progress.inc_evaluated_states();
             search_progress.inc_evaluations(heuristics.size());
