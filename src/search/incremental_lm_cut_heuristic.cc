@@ -80,7 +80,9 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
-    LandmarkCutHeuristic::compute_heuristic(state);
+    if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
+        return DEAD_END;
+    }
 
     // remember operator costs
     vector<int> &operator_costs = node_operator_costs[StateProxy(&state)];
