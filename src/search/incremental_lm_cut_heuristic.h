@@ -3,6 +3,7 @@
 
 #include "lm_cut_heuristic.h"
 #include "state_proxy.h"
+#include "search_space.h"
 
 
 // wraps vector<RelaxedOperator *> to add costs
@@ -13,13 +14,22 @@ public:
     Landmark(vector<RelaxedOperator *> &operators, int cost);
 };
 
+template<class T1, class T2>
+struct ComparePairByFirstComponent {
+  bool operator()(pair<T1, T2> const& lhs, pair<T1, T2> const& rhs){
+    return lhs.first < rhs.first;
+  }
+};
+
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
 private:
+    int max_entries;
     vector<Landmark *> all_landmarks;
     __gnu_cxx::hash_map<StateProxy, vector<Landmark *> > node_landmarks;
     __gnu_cxx::hash_map<StateProxy, vector<int> > node_operator_costs;
-   bool in_initial_state;
+   bool has_parent_costs;
 protected:
+    virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
                              const State &state);
     virtual void discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost);
@@ -28,6 +38,7 @@ protected:
 public:
     IncrementalLandmarkCutHeuristic(const Options &opts);
     virtual ~IncrementalLandmarkCutHeuristic();
+    virtual void free_up_memory(SearchSpace &search_space);
 };
 
 

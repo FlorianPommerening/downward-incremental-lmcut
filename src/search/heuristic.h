@@ -3,6 +3,7 @@
 
 #include "scalar_evaluator.h"
 #include "operator_cost.h"
+#include "search_space.h"
 
 #include <map>
 #include <set>
@@ -57,6 +58,7 @@ public:
     void get_involved_heuristics(std::set<Heuristic *> &hset) {hset.insert(this); }
     virtual void reset() {}
     OperatorCost get_cost_type() const {return cost_type; }
+    virtual void free_up_memory(SearchSpace &/*search_space*/) {}
 
     static void add_options_to_parser(OptionParser &parser);
     static Options default_options();
