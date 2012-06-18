@@ -14,7 +14,7 @@
 #include <vector>
 using namespace std;
 
-Landmark::Landmark(vector<RelaxedOperator *> &operators, int cost): vector<RelaxedOperator *>(operators), cost(cost) {
+Landmark::Landmark(vector<RelaxedOperator *> &operators, int cost) : vector<RelaxedOperator *>(operators), cost(cost) {
 }
 
 // construction and destruction
@@ -34,8 +34,7 @@ void IncrementalLandmarkCutHeuristic::initialize() {
     if (memory_limit == 0) {
         memory_limit = numeric_limits<int>::max();
         cout << "Using no memory limit" << endl;
-    }
-    else {
+    } else {
         // convert MB in byte
         cout << "Memory limit is " << memory_limit * 1024 * 1024 << " bytes (" << memory_limit << " MB). Meta information will be pruned if it takes up more space." << endl;
         memory_limit *= 1024 * 1024;
@@ -59,7 +58,7 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
     used_memory += sizeof(vector<LandmarkPtr>);
     current_landmarks.reserve(parent_landmarks.size());
 
-    for (int i=0; i < parent_operator_costs.size(); ++i) {
+    for (int i = 0; i < parent_operator_costs.size(); ++i) {
         relaxed_operators[i].cost = parent_operator_costs[i];
     }
 
@@ -77,8 +76,7 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         if (copy_landmark) {
             current_landmarks.push_back(landmark);
             used_memory += sizeof(LandmarkPtr);
-        }
-        else {
+        } else {
             for (vector<RelaxedOperator *>::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
                 (*it_op)->cost += landmark->cost;
             }
@@ -90,7 +88,7 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
     LandmarkPtr createdLandmark(new Landmark(landmark, cost));
     node_landmarks[StateProxy(&state)].push_back(createdLandmark);
-    used_memory += landmark.size() * sizeof(RelaxedOperator*);
+    used_memory += landmark.size() * sizeof(RelaxedOperator *);
     used_memory += sizeof(Landmark);
     used_memory += sizeof(LandmarkPtr);
 }
@@ -101,7 +99,6 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
     if (!has_parent_costs) {
         LandmarkCutHeuristic::reset_operator_costs();
     }
-
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
@@ -114,7 +111,7 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     // remember operator costs
     vector<int> &operator_costs = node_operator_costs[state_proxy];
     operator_costs.resize(relaxed_operators.size());
-    for (int i=0; i < relaxed_operators.size(); ++i) {
+    for (int i = 0; i < relaxed_operators.size(); ++i) {
         operator_costs[i] = relaxed_operators[i].cost;
     }
     used_memory += operator_costs.size() * sizeof(int);
@@ -141,11 +138,11 @@ void IncrementalLandmarkCutHeuristic::remove_meta_information(StateProxy &state_
     __gnu_cxx::hash_map<StateProxy, vector<LandmarkPtr> >::iterator it_landmarks = node_landmarks.find(state_proxy);
     if (it_landmarks != node_landmarks.end()) {
         vector<LandmarkPtr> &landmarks = it_landmarks->second;
-        for(vector<LandmarkPtr>::iterator it_landmark = landmarks.begin(); it_landmark != landmarks.end(); ++it_landmark) {
+        for (vector<LandmarkPtr>::iterator it_landmark = landmarks.begin(); it_landmark != landmarks.end(); ++it_landmark) {
             LandmarkPtr &landmark = *it_landmark;
             used_memory -= sizeof(LandmarkPtr);
             if (landmark.unique()) {
-                used_memory -= landmark->size() * sizeof(RelaxedOperator*);
+                used_memory -= landmark->size() * sizeof(RelaxedOperator *);
                 used_memory -= sizeof(Landmark);
             }
         }
@@ -163,7 +160,7 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &search_space) 
     // try to find the nodes with maximal f value
     vector<pair<int, StateProxy> > states_by_f_value;
     states_by_f_value.reserve(n);
-    for(__gnu_cxx::hash_map<StateProxy, vector<int> >::iterator it = node_operator_costs.begin(); it != node_operator_costs.end(); ++it) {
+    for (__gnu_cxx::hash_map<StateProxy, vector<int> >::iterator it = node_operator_costs.begin(); it != node_operator_costs.end(); ++it) {
         StateProxy s = it->first;
         SearchNode n = search_space.get_node(State(s.state_data));
         // TODO this could lead to problem with multiple heuristics because n.get_h(); will return the value of only one of the heuristics
@@ -171,8 +168,8 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &search_space) 
         pair<int, StateProxy> p = make_pair(f, s);
         states_by_f_value.push_back(p);
     }
-    sort(states_by_f_value.begin(), states_by_f_value.end(), ComparePairByFirstComponent<int,StateProxy>());
-    for(int i = states_by_f_value.size()-1; i >= 0 && used_memory > memory_limit/2; --i) {
+    sort(states_by_f_value.begin(), states_by_f_value.end(), ComparePairByFirstComponent<int, StateProxy>());
+    for (int i = states_by_f_value.size() - 1; i >= 0 && used_memory > memory_limit / 2; --i) {
         StateProxy s = states_by_f_value[i].second;
         remove_meta_information(s);
     }

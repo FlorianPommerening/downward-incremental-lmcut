@@ -136,7 +136,7 @@ protected:
     RelaxedProposition artificial_goal;
     int num_propositions;
     virtual void initialize();
-    virtual void discovered_landmark(const State &/*state*/, std::vector<RelaxedOperator *> &/*landmark*/, int /*cost*/) {
+    virtual void discovered_landmark(const State & /*state*/, std::vector<RelaxedOperator *> & /*landmark*/, int /*cost*/) {
     }
     virtual void reset_operator_costs();
     virtual int compute_heuristic(const State &state);
