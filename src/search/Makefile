@@ -71,6 +71,7 @@ HEADERS += ff_heuristic.h
 HEADERS += goal_count_heuristic.h
 HEADERS += hm_heuristic.h
 HEADERS += lm_cut_heuristic.h
+HEADERS += incremental_lm_cut_heuristic.h
 HEADERS += max_heuristic.h
 
 HEADERS += merge_and_shrink/abstraction.h \
