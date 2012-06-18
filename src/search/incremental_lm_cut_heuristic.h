@@ -5,6 +5,8 @@
 #include "state_proxy.h"
 #include "search_space.h"
 
+#include <boost/shared_ptr.hpp>
+
 
 // wraps vector<RelaxedOperator *> to add costs
 // adding or removing operators after creation does *not* update costs (not implemented)
@@ -13,6 +15,8 @@ public:
     int cost;
     Landmark(vector<RelaxedOperator *> &operators, int cost);
 };
+
+typedef boost::shared_ptr<Landmark> LandmarkPtr;
 
 template<class T1, class T2>
 struct ComparePairByFirstComponent {
@@ -23,11 +27,12 @@ struct ComparePairByFirstComponent {
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
 private:
-    int max_entries;
-    vector<Landmark *> all_landmarks;
-    __gnu_cxx::hash_map<StateProxy, vector<Landmark *> > node_landmarks;
+    unsigned long memory_limit;
+    unsigned long used_memory;
+    __gnu_cxx::hash_map<StateProxy, vector<LandmarkPtr> > node_landmarks;
     __gnu_cxx::hash_map<StateProxy, vector<int> > node_operator_costs;
    bool has_parent_costs;
+   void remove_meta_information(StateProxy &state_proxy);
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
