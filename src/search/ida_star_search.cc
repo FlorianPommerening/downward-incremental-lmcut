@@ -139,6 +139,7 @@ int IDAStarSearch::step() {
             if (succ_f > current_bound) {
                 next_bound = min(next_bound, succ_f);
                 succ_node.close();
+                heuristic->finished_state(succ_node.get_state(), succ_f, true);
                 continue;
             }
             if (check_goal_and_set_plan(succ_node.get_state()))
@@ -153,12 +154,13 @@ int IDAStarSearch::step() {
             // cheaper paths to open states mean negative or zero cost cycles and are ignored.
             // TODO maybe handle this better
             if (succ_node.is_closed()) {
-                succ_node.set_layer(layer);
                 int succ_f = succ_g + succ_node.get_h();
                 if (succ_f > current_bound) {
                     next_bound = min(next_bound, succ_f);
+                    heuristic->finished_state(succ_node.get_state(), succ_f, true);
                     continue;
                 }
+                succ_node.set_layer(layer);
                 search_progress.inc_reopened();
                 succ_node.reopen(node, op);
                 open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
@@ -173,7 +175,7 @@ void IDAStarSearch::backtrack() {
     search_progress.inc_expanded();
     SearchNode node = search_space.get_node(State(n.state_buffer));
     node.close();
-    heuristic->finished_state(node.get_state());
+    heuristic->finished_state(node.get_state(), node.get_g() + node.get_h(), false);
     open_stack.pop_back();
 }
 
