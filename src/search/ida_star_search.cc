@@ -116,12 +116,11 @@ int IDAStarSearch::step() {
         // Previously encountered dead end. Don't re-evaluate.
         if (succ_node.is_dead_end())
             continue;
-        heuristic->reach_state(s, *op, succ_node.get_state());
-
         int succ_g = node.get_real_g() + op->get_cost();
         if (succ_node.is_new()) {
             // We have not seen this state before.
             // Evaluate and create a new node.
+            heuristic->reach_state(s, *op, succ_node.get_state());
             heuristic->evaluate(succ_node.get_state());
             if (heuristic->is_dead_end()) {
                 succ_node.mark_as_dead_end();
