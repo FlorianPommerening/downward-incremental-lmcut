@@ -32,7 +32,7 @@ void IncrementalLandmarkCutHeuristic::initialize() {
     LandmarkCutHeuristic::initialize();
 
     if (memory_limit == 0) {
-        memory_limit = numeric_limits<int>::max();
+        memory_limit = numeric_limits<unsigned long>::max();
         cout << "Using no memory limit" << endl;
     } else {
         // convert MB in byte
@@ -83,6 +83,11 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         }
     }
     return h_dirty;
+}
+
+void IncrementalLandmarkCutHeuristic::finished_state(const State &state) {
+    StateProxy proxy(&state);
+    remove_meta_information(proxy);
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
