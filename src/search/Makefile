@@ -28,6 +28,7 @@ HEADERS = \
           g_evaluator.h \
           globals.h \
           heuristic.h \
+          ida_star_search.h \
           ipc_max_heuristic.h \
           iterated_search.h \
           lazy_search.h \
@@ -206,7 +207,7 @@ POSTLINKOPT =
 ##        For details, see man gcc on -static-libgcc.
 
 CCOPT_RELEASE  = -O3 -DNDEBUG -fomit-frame-pointer
-CCOPT_DEBUG    = -O3
+CCOPT_DEBUG    = -O0
 CCOPT_PROFILE  = -O3 -pg
 
 LINKOPT_RELEASE =
@@ -223,11 +224,11 @@ endif
 
 ifeq ($(OS), linux)
 ifeq ($(LINK_RELEASE_STATICALLY), 0)
-LINKOPT_RELEASE += -lrt
+LINKOPT_RELEASE += -Wl,--no-as-needed -lrt
 else
 POSTLINKOPT_RELEASE += -Wl,-Bstatic -lrt
 endif
-LINKOPT_DEBUG  += -lrt
+LINKOPT_DEBUG  += -Wl,--no-as-needed -lrt
 LINKOPT_PROFILE += -lrt
 # LINKOPT_PROFILE += -lc_p
 endif
