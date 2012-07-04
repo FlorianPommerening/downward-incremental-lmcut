@@ -47,7 +47,15 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
     if (node_operator_costs.find(parent_proxy) == node_operator_costs.end()) {
         has_parent_costs = false;
         assert(node_landmarks.find(parent_proxy) == node_landmarks.end());
-        return true;
+        // HACK computing the parent heuristic is not necessary. it is based on
+        // the assumption that siblings of this node will be expanded soon and
+        // will profit from the calculated parent info
+        // This should be an option and probably use more safeguards (not sure if
+        // this can break anything when information is removed)
+
+        // Alternatively:
+        // return true;
+        compute_heuristic(parent_state);
     }
 
     has_parent_costs = true;
@@ -86,15 +94,18 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 }
 
 void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f*/,
-                                                     bool is_on_frontier) {
+                                                     bool /*is_on_frontier*/) {
     StateProxy proxy(&state);
-    if (is_on_frontier) {
+/*    if (is_on_frontier) {
         // keep all frontier states for now
         // TODO keep only a fixed amount of states (keep lower f values)
         return;
     } else {
+*/
         remove_meta_information(proxy);
+/*
     }
+*/
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
