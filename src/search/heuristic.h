@@ -51,7 +51,10 @@ public:
                              const State &state);
     // notify heuristic that this state will not be needed again (possible for
     // depth first searches)
-    virtual void finished_state(const State &/*state*/) {}
+    // a node on the frontier is pruned in IDA* because its f value is too high
+    // if the search runs for another iteration it might be expanded
+    virtual void finished_state(const State &/*state*/, int /*f*/,
+                                bool /*is_on_frontier*/) {}
 
     // for abstract parent ScalarEvaluator
     int get_value() const;
