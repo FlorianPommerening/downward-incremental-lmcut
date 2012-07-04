@@ -85,9 +85,16 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
     return h_dirty;
 }
 
-void IncrementalLandmarkCutHeuristic::finished_state(const State &state) {
+void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f*/,
+                                                     bool is_on_frontier) {
     StateProxy proxy(&state);
-    remove_meta_information(proxy);
+    if (is_on_frontier) {
+        // keep all frontier states for now
+        // TODO keep only a fixed amount of states (keep lower f values)
+        return;
+    } else {
+        remove_meta_information(proxy);
+    }
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {

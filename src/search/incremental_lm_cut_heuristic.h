@@ -37,7 +37,8 @@ protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
                              const State &state);
-    virtual void finished_state(const State &state);
+    virtual void finished_state(const State &state, int f, bool is_on_frontier);
+
     virtual void discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost);
     virtual void reset_operator_costs();
     virtual int compute_heuristic(const State &state);
