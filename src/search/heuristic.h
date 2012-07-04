@@ -49,6 +49,9 @@ public:
     virtual bool dead_ends_are_reliable() const {return true; }
     virtual bool reach_state(const State &parent_state, const Operator &op,
                              const State &state);
+    // notify heuristic that this state will not be needed again (possible for
+    // depth first searches)
+    virtual void finished_state(const State &/*state*/) {}
 
     // for abstract parent ScalarEvaluator
     int get_value() const;
