@@ -20,6 +20,8 @@ Landmark::Landmark(vector<RelaxedOperator *> &operators, int cost) : vector<Rela
 // construction and destruction
 IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &opts)
     : LandmarkCutHeuristic(opts),
+      keep_frontier(opts.get<bool>("keep_frontier")),
+      reevaluate_parent(opts.get<bool>("reevaluate_parent")),
       memory_limit(opts.get<unsigned int>("memory_limit")),
       used_memory(0),
       has_parent_costs(false) {
@@ -30,6 +32,12 @@ IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
 
 void IncrementalLandmarkCutHeuristic::initialize() {
     LandmarkCutHeuristic::initialize();
+
+    cout << "Landmarks for node on the search frontier will "
+         << (keep_frontier ? "not " : "") << "be removed" << endl;
+
+    cout << "For nodes without saved parent landmarks the parent node will "
+         << (reevaluate_parent ? "" : "not ") << "be reevaluated" << endl;
 
     if (memory_limit == 0) {
         memory_limit = numeric_limits<unsigned long>::max();
@@ -47,15 +55,12 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
     if (node_operator_costs.find(parent_proxy) == node_operator_costs.end()) {
         has_parent_costs = false;
         assert(node_landmarks.find(parent_proxy) == node_landmarks.end());
-        // HACK computing the parent heuristic is not necessary. it is based on
-        // the assumption that siblings of this node will be expanded soon and
-        // will profit from the calculated parent info
-        // This should be an option and probably use more safeguards (not sure if
-        // this can break anything when information is removed)
-
-        // Alternatively:
-        // return true;
-        compute_heuristic(parent_state);
+        if (reevaluate_parent) {
+            compute_heuristic(parent_state);
+            // now the information for the parent node has to exist. continue as planned
+        } else {
+            return true;
+        }
     }
 
     has_parent_costs = true;
@@ -94,18 +99,14 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 }
 
 void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f*/,
-                                                     bool /*is_on_frontier*/) {
+                                                     bool is_on_frontier) {
     StateProxy proxy(&state);
-/*    if (is_on_frontier) {
-        // keep all frontier states for now
-        // TODO keep only a fixed amount of states (keep lower f values)
+    if (is_on_frontier && keep_frontier) {
+        // TODO could also keep only a fixed amount of states (keep lower f values)
         return;
     } else {
-*/
         remove_meta_information(proxy);
-/*
     }
-*/
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
@@ -201,7 +202,9 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &search_space) 
 
 
 static ScalarEvaluator *_parse(OptionParser &parser) {
-    parser.add_option<unsigned int>("memory_limit", 0, "Maximum amount of memory (in MB) used for storing meta information. Use 0 (default) for no limit");
+    parser.add_option<unsigned int>("memory_limit",  0, "Maximum amount of memory (in MB) used for storing meta information. Use 0 (default) for no limit.");
+    parser.add_option<bool>("keep_frontier",     false, "Landmarks for nodes on the search frontier are not removed if the node is closed.");
+    parser.add_option<bool>("reevaluate_parent", false, "If a node is encountered where the parent node has no saved landmarks, the heuristic for the parent is recomputed. This is based on the assumption that siblings of this node will be expanded soon and will profit from the calculated parent info");
     Heuristic::add_options_to_parser(parser);
     Options opts = parser.parse();
     if (parser.dry_run())

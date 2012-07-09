@@ -27,6 +27,8 @@ struct ComparePairByFirstComponent {
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
 private:
+    bool keep_frontier;
+    bool reevaluate_parent;
     unsigned long memory_limit;
     unsigned long used_memory;
     __gnu_cxx::hash_map<StateProxy, vector<LandmarkPtr> > node_landmarks;

@@ -227,6 +227,12 @@ int EagerSearch::step() {
         }
     }
 
+    for (size_t i = 0; i < heuristics.size(); i++) {
+        // HACK try to maintain only met information for boundary nodes
+        // only useful for incremental lmcut atm
+        heuristics[i]->finished_state(s, node.get_real_g() + node.get_h(), false);
+    }
+
     return IN_PROGRESS;
 }
 
