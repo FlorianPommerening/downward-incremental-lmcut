@@ -117,6 +117,7 @@ int IDAStarSearch::step() {
         if (succ_node.is_dead_end())
             continue;
         int succ_g = node.get_real_g() + op->get_cost();
+        bool check_goal = false;
         if (succ_node.is_new()) {
             // We have not seen this state before.
             // Evaluate and create a new node.
@@ -142,8 +143,7 @@ int IDAStarSearch::step() {
                 heuristic->finished_state(succ_node.get_state(), succ_f, true);
                 continue;
             }
-            if (check_goal_and_set_plan(succ_node.get_state()))
-                return SOLVED;
+            check_goal = true;
             search_progress.check_h_progress(succ_g);
             open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
 
@@ -154,6 +154,7 @@ int IDAStarSearch::step() {
             // cheaper paths to open states mean negative or zero cost cycles and are ignored.
             // TODO maybe handle this better
             if (succ_node.is_closed()) {
+                check_goal = (succ_node.get_real_g() > succ_g);
                 int succ_f = succ_g + succ_node.get_h();
                 if (succ_f > current_bound) {
                     next_bound = min(next_bound, succ_f);
@@ -165,6 +166,9 @@ int IDAStarSearch::step() {
                 succ_node.reopen(node, op);
                 open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
             }
+        }
+        if (check_goal && check_goal_and_set_plan(succ_node.get_state())) {
+            return SOLVED;
         }
     }
 }
