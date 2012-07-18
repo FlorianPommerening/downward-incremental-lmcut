@@ -62,7 +62,10 @@ void IDAStarSearch::initialize() {
 }
 
 int IDAStarSearch::restart_with_next_bound(int _current_bound) {
-    search_progress.report_f_value(current_bound);
+    // HACK
+    if (_current_bound != 1) {
+        search_progress.report_f_value(current_bound);
+    }
     if (_current_bound > bound || _current_bound == numeric_limits<int>::max()) {
         return FAILED;
     }

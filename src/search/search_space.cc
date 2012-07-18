@@ -18,7 +18,9 @@ SearchNode::SearchNode(state_var_t *state_buffer_, SearchNodeInfo &info_, Operat
 }
 
 State SearchNode::get_state() const {
-    return State(state_buffer);
+    State s = State(state_buffer);
+    s.depth = info.depth;
+    return s;
 }
 
 bool SearchNode::is_open() const {
@@ -158,6 +160,7 @@ int SearchSpace::size() const {
 
 SearchNode SearchSpace::get_node(const State &state) {
     static SearchNodeInfo default_info;
+    default_info.depth = state.depth;
     pair<HashTable::iterator, bool> result = nodes->insert(
         make_pair(StateProxy(&state), default_info));
     if (result.second) {

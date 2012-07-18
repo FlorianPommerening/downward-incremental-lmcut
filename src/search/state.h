@@ -17,6 +17,12 @@ class State {
     void _copy_buffer_from_state(const State &state);
 
 public:
+
+    // HACK
+    int depth;
+
+
+
     explicit State(istream &in);
     State(const State &state);
     State(const State &predecessor, const Operator &op);

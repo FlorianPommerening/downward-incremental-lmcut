@@ -19,6 +19,8 @@ class SearchNodeInfo {
 
     // HACK
     int layer;
+    // HACK
+    int depth;
 
     SearchNodeInfo()
         : status(NEW), g(-1), h(-1), h_is_dirty(false),

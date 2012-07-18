@@ -28,6 +28,7 @@ void State::_copy_buffer_from_state(const State &state) {
 }
 
 State & State::operator=(const State &other) {
+    depth = other.depth;
     if (this != &other) {
         if (borrowed_buffer)
             _allocate();
@@ -37,6 +38,7 @@ State & State::operator=(const State &other) {
 }
 
 State::State(istream &in) {
+    depth = 0;
     _allocate();
     check_magic(in, "begin_state");
     for (int i = 0; i < g_variable_domain.size(); i++) {
@@ -49,12 +51,13 @@ State::State(istream &in) {
     g_default_axiom_values.assign(vars, vars + g_variable_domain.size());
 }
 
-State::State(const State &state) {
+State::State(const State &state): depth(state.depth) {
     _allocate();
     _copy_buffer_from_state(state);
 }
 
 State::State(const State &predecessor, const Operator &op) {
+    depth = predecessor.depth+1;
     assert(!op.is_axiom());
     _allocate();
     _copy_buffer_from_state(predecessor);
