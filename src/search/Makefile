@@ -37,6 +37,7 @@ HEADERS = \
           operator.h \
           operator_cost.h \
           option_parser.h \
+          per_state_information.h \
           pref_evaluator.h \
           relaxation_heuristic.h \
           rng.h \
@@ -45,6 +46,7 @@ HEADERS = \
           search_progress.h \
           search_space.h \
           state.h \
+          state_manager.h \
           successor_generator.h \
           sum_evaluator.h \
           timer.h \
