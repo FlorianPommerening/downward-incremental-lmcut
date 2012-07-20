@@ -47,7 +47,7 @@ State::State(state_var_t *buffer, int _id) : id(_id) {
     }
 }
 
-State::State(const State &state): depth(state.depth) , id(state.id) {
+State::State(const State &state): id(state.id), depth(state.depth) {
     _allocate();
     _copy_buffer_from_state(state);
 }

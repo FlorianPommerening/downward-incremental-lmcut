@@ -10,8 +10,17 @@ public:
     }
 
     virtual int compute_heuristic(const State &state){
-        return state.get_id();//100-state.depth;
+        return 100-state.depth;
     }
 };
 
+class IDEvaluator : public Heuristic {
+public:
+    IDEvaluator(Options &opts): Heuristic(opts) {
+    }
+
+    virtual int compute_heuristic(const State &state){
+        return state.get_id();
+    }
+};
 #endif // DEPTHEVALUATOR_H
