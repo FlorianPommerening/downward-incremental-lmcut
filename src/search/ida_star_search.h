@@ -30,6 +30,8 @@ public:
 
 class IDAStarSearch : public SearchEngine {
     vector<OpenStackEntry> open_stack;
+    bool remember_pruned_nodes;
+    vector<OpenStackEntry> next_layer_open_stack;
     void backtrack();
 
 protected:

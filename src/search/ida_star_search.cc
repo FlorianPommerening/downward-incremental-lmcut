@@ -35,6 +35,7 @@ void OpenStackEntry::reset() {
 
 IDAStarSearch::IDAStarSearch(const Options &opts)
         : SearchEngine(opts),
+        remember_pruned_nodes(opts.get<bool>("remember_pruned_nodes")),
         heuristic(opts.get<Heuristic *>("heuristic")) {
 }
 
@@ -55,7 +56,9 @@ void IDAStarSearch::initialize() {
         search_progress.check_h_progress(0);
         layer = 0;
         node.open_initial(heuristic->get_value());
-        open_stack.push_back(OpenStackEntry(node.get_state_buffer()));
+        if (remember_pruned_nodes) {
+            next_layer_open_stack.push_back(OpenStackEntry(node.get_state_buffer()));
+        }
         current_bound = heuristic->get_value();
         restart_with_next_bound(heuristic->get_value());
     }
@@ -69,8 +72,25 @@ int IDAStarSearch::restart_with_next_bound(int _current_bound) {
     layer++;
     current_bound = _current_bound;
     cout << "Next bound for IDA* search is " << current_bound << endl;
-    assert(open_stack.size() == 1);
-    open_stack[0].reset();
+    assert(open_stack.empty());
+    if (remember_pruned_nodes) {
+        next_layer_open_stack.swap(open_stack);
+        next_layer_open_stack.clear();
+        for (int i=0; i<open_stack.size(); ++i) {
+            open_stack[i].reset();
+            SearchNode node = search_space.get_node(State(open_stack[i].state_buffer));
+            if (node.is_closed()) {
+                node.reopen();
+            }
+        }
+    } else {
+        SearchNode node = search_space.get_node(*g_initial_state);
+        if (node.is_closed()) {
+            node.reopen();
+        }
+        open_stack.push_back(OpenStackEntry(node.get_state_buffer()));
+    }
+    assert(!open_stack.empty());
     return IN_PROGRESS;
 }
 
@@ -86,30 +106,31 @@ int IDAStarSearch::step() {
     }
     int next_bound = numeric_limits<int>::max();
     while (true) {
+        if (open_stack.empty()) {
+            return restart_with_next_bound(next_bound);
+        }
         OpenStackEntry *n = &open_stack.back();
         const Operator *op = n->next_applicable_operator();
         if (!op) {
-            // this node was fully explored, backtrack by walking up the stack
-            while (true) {
-                if (open_stack.size() == 1) {
-                    // never close the initial node (it is reused for the next iteration)
-                    return restart_with_next_bound(next_bound);
-                }
-                else {
-                    backtrack();
-                }
-                n = &open_stack.back();
-                op = n->next_applicable_operator();
-                // this node was not fully explored yet, stop backtracking
-                if (op){
-                    break;
-                }
-            }
+            // This node was fully explored, backtrack by walking up the stack
+            backtrack();
+            continue;
         }
 
         State s(n->state_buffer);
         SearchNode node = search_space.get_node(s);
-        State succ_state(State(n->state_buffer), *op);
+        int node_f = node.get_real_g() + node.get_h();
+        if (node_f > current_bound) {
+            // This node does not look promising enough, backtrack by walking up the stack
+            // This can happen if the node was pruned in the last iteration
+            next_bound = min(next_bound, node_f);
+            if (remember_pruned_nodes) {
+                next_layer_open_stack.push_back(*n);
+            }
+            backtrack();
+            continue;
+        }
+        State succ_state(s, *op);
         SearchNode succ_node = search_space.get_node(succ_state);
         search_progress.inc_generated();
 
@@ -123,31 +144,21 @@ int IDAStarSearch::step() {
             // Evaluate and create a new node.
             heuristic->reach_state(s, *op, succ_node.get_state());
             heuristic->evaluate(succ_node.get_state());
+            search_progress.inc_evaluated_states();
+            search_progress.inc_evaluations(1);
             if (heuristic->is_dead_end()) {
                 succ_node.mark_as_dead_end();
                 search_progress.inc_dead_ends();
                 continue;
             }
-            search_progress.inc_evaluated_states();
-            search_progress.inc_evaluations(1);
-            // always open the node (even if it will be pruned) to avaoid having
+            // always open the node (even if it will be pruned) to avoid having
             // to recompute the heuristic if it is encountered again
             int succ_h = heuristic->get_heuristic();
             succ_node.open(succ_h, node, op);
             succ_node.set_layer(layer);
-
-            int succ_f = succ_g + succ_h;
-            if (succ_f > current_bound) {
-                next_bound = min(next_bound, succ_f);
-                succ_node.close();
-                heuristic->finished_state(succ_node.get_state(), succ_f, true);
-                continue;
-            }
             check_goal = true;
             search_progress.check_h_progress(succ_g);
             open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
-
-
         } else if (succ_node.get_real_g() > succ_g ||
                    (succ_node.get_real_g() == succ_g && succ_node.get_layer() < layer)) {
             // We found a new cheapest path to an open or closed state.
@@ -155,12 +166,6 @@ int IDAStarSearch::step() {
             // TODO maybe handle this better
             if (succ_node.is_closed()) {
                 check_goal = (succ_node.get_real_g() > succ_g);
-                int succ_f = succ_g + succ_node.get_h();
-                if (succ_f > current_bound) {
-                    next_bound = min(next_bound, succ_f);
-                    heuristic->finished_state(succ_node.get_state(), succ_f, true);
-                    continue;
-                }
                 succ_node.set_layer(layer);
                 search_progress.inc_reopened();
                 succ_node.reopen(node, op);
@@ -192,6 +197,8 @@ void IDAStarSearch::backtrack() {
 static SearchEngine *_parse(OptionParser &parser) {
     parser.add_option<Heuristic *>
         ("heuristic", "Heuristic evaluator for node pruning");
+    parser.add_option<bool>("remember_pruned_nodes", false,
+                            "Keep a list of pruned nodes. This makes the IDA* search behave more like an A* search.");
     SearchEngine::add_options_to_parser(parser);
     Options opts = parser.parse();
 
