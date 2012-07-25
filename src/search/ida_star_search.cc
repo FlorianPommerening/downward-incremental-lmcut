@@ -129,6 +129,7 @@ int IDAStarSearch::step() {
         State s(n->state_buffer);
         SearchNode node = search_space.get_node(s);
         if (node.is_closed()) {
+            backtrack();
             continue;
         }
 
@@ -166,6 +167,8 @@ int IDAStarSearch::step() {
             if (heuristic->is_dead_end()) {
                 succ_node.mark_as_dead_end();
                 search_progress.inc_dead_ends();
+                succ_node.close();
+                heuristic->finished_state(succ_node.get_state(), -1, false);
                 continue;
             }
             // always open the node (even if it will be pruned) to avoid having
@@ -195,6 +198,7 @@ int IDAStarSearch::step() {
                     // only remember a node the first time it is encountered to avoid duplicates in the open list
                     next_layer_open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
                 }
+                heuristic->finished_state(succ_node.get_state(), succ_f, true);
                 continue;
             }
             open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
