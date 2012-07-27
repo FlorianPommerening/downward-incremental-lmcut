@@ -57,7 +57,7 @@ void IDAStarSearch::initialize() {
         layer = 0;
         node.open_initial(heuristic->get_value());
         if (remember_pruned_nodes) {
-            next_layer_open_stack[heuristic->get_value()].push_back(OpenStackEntry(node.get_state_buffer()));
+            next_layer_open_stack.push_back(OpenStackEntry(node.get_state_buffer()));
         }
         // initialize to negative value, because the restart_with_next_bound()
         // method only accepts nodes with a heuristic value greater than the current bound
@@ -75,20 +75,17 @@ int IDAStarSearch::restart_with_next_bound(int _current_bound) {
     assert(open_stack.empty());
     if (remember_pruned_nodes) {
         open_stack.reserve(next_layer_open_stack.size());
-        for (std::map<int, Bucket>::iterator it_bucket=next_layer_open_stack.begin(); it_bucket != next_layer_open_stack.end(); ++it_bucket) {
-            Bucket &bucket = it_bucket->second;
-            for (Bucket::iterator it=bucket.begin(); it != bucket.end(); ++it) {
-                OpenStackEntry &entry = *it;
-                SearchNode node = search_space.get_node(State(entry.state_buffer));
-                if (node.get_real_g() + node.get_h() > current_bound) {
-                    // This could no longer be true if a cheaper path to this node
-                    // was discovered after it was entered in the list
-                    entry.reset();
-                    if (node.is_closed()) {
-                        node.reopen();
-                    }
-                    open_stack.push_back(entry);
+        for (int i=0; i < next_layer_open_stack.size(); ++i) {
+            OpenStackEntry &entry = next_layer_open_stack[i];
+            SearchNode node = search_space.get_node(State(entry.state_buffer));
+            if (node.get_real_g() + node.get_h() > current_bound) {
+                // This could no longer be true if a cheaper path to this node
+                // was discovered after it was entered in the list
+                entry.reset();
+                if (node.is_closed()) {
+                    node.reopen();
                 }
+                open_stack.push_back(entry);
             }
         }
         next_layer_open_stack.clear();
@@ -142,7 +139,7 @@ int IDAStarSearch::step() {
             // This can happen if the node was pruned in the last iteration
             next_bound = min(next_bound, node_f);
             if (remember_pruned_nodes) {
-                next_layer_open_stack[node.get_h()].push_back(*n);
+                next_layer_open_stack.push_back(*n);
             }
             backtrack();
             continue;
@@ -199,7 +196,7 @@ int IDAStarSearch::step() {
                 next_bound = min(next_bound, succ_f);
                 if (remember_pruned_nodes && new_node) {
                     // only remember a node the first time it is encountered to avoid duplicates in the open list
-                    next_layer_open_stack[succ_node.get_h()].push_back(OpenStackEntry(succ_node.get_state_buffer()));
+                    next_layer_open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
                 }
                 heuristic->finished_state(succ_node.get_state(), succ_f, true);
                 continue;
