@@ -52,7 +52,7 @@ void IncrementalLandmarkCutHeuristic::initialize() {
 
 
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
-    if (!saved_outcomes[parent_state].is_valid) {
+    if (saved_outcomes[parent_state].operator_costs.empty()) {
         has_parent_costs = false;
         if (reevaluate_parent) {
             compute_heuristic(parent_state);
@@ -137,7 +137,6 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     }
     used_memory += operator_costs.size() * sizeof(int);
 //    used_memory += sizeof(vector<int>);
-    saved_outcomes[state].is_valid = true;
 
     int result = 0;
     vector<LandmarkPtr> &landmarks = saved_outcomes[state].landmarks;
@@ -165,8 +164,6 @@ void IncrementalLandmarkCutHeuristic::remove_meta_information(int state_id) {
     }
     landmarks.clear();
 //    used_memory -= sizeof(vector<LandmarkPtr>);
-
-    saved_outcomes[state_id].is_valid = false;
 }
 
 void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space*/) {
@@ -179,7 +176,7 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space
     int memory_target = memory_limit / 2;
     while (used_memory > memory_target) {
         int i = g_rng.next(n);
-        while (!saved_outcomes[i % n].is_valid) {
+        while (saved_outcomes[i % n].operator_costs.empty()) {
             i++;
         }
         remove_meta_information(i);

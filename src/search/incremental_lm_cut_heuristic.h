@@ -20,10 +20,6 @@ public:
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
 
 struct SavedHeuristicOutcome {
-    SavedHeuristicOutcome() : is_valid(false) {
-    }
-
-    bool is_valid;
     vector<LandmarkPtr> landmarks;
     vector<int> operator_costs;
 };
