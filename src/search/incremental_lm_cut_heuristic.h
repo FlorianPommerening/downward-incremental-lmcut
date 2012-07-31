@@ -4,6 +4,7 @@
 #include "lm_cut_heuristic.h"
 #include "state_proxy.h"
 #include "search_space.h"
+#include "per_state_information.h"
 
 #include <boost/shared_ptr.hpp>
 
@@ -18,11 +19,13 @@ public:
 
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
 
-template<class T1, class T2>
-struct ComparePairByFirstComponent {
-    bool operator()(pair<T1, T2> const &lhs, pair<T1, T2> const &rhs) {
-        return lhs.first < rhs.first;
+struct SavedHeuristicOutcome {
+    SavedHeuristicOutcome() : is_valid(false) {
     }
+
+    bool is_valid;
+    vector<LandmarkPtr> landmarks;
+    vector<int> operator_costs;
 };
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
@@ -31,10 +34,9 @@ private:
     bool reevaluate_parent;
     unsigned long memory_limit;
     unsigned long used_memory;
-    __gnu_cxx::hash_map<StateProxy, vector<LandmarkPtr> > node_landmarks;
-    __gnu_cxx::hash_map<StateProxy, vector<int> > node_operator_costs;
+    PerStateInformation<SavedHeuristicOutcome> saved_outcomes;
     bool has_parent_costs;
-    void remove_meta_information(StateProxy &state_proxy);
+    void remove_meta_information(int state_id);
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
