@@ -22,6 +22,17 @@ typedef boost::shared_ptr<Landmark> LandmarkPtr;
 struct SavedHeuristicOutcome {
     vector<LandmarkPtr> landmarks;
     vector<int> operator_costs;
+    int f;
+};
+
+struct SortByFValue {
+    PerStateInformation<SavedHeuristicOutcome *> &saved_outcomes;
+    SortByFValue(PerStateInformation<SavedHeuristicOutcome *> &_saved_outcomes) :
+        saved_outcomes(_saved_outcomes) {}
+
+    bool operator()(int const &lhs, int const &rhs) {
+        return saved_outcomes[lhs]->f < saved_outcomes[rhs]->f;
+    }
 };
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
@@ -30,9 +41,13 @@ private:
     bool reevaluate_parent;
     unsigned long memory_limit;
     unsigned long used_memory;
-    PerStateInformation<SavedHeuristicOutcome> saved_outcomes;
+
+    PerStateInformation<SavedHeuristicOutcome *> saved_outcomes;
     bool has_parent_costs;
+
+    vector<int> deletion_schedule;
     void remove_meta_information(int state_id);
+    virtual void free_up_memory();
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
@@ -45,7 +60,6 @@ protected:
 public:
     IncrementalLandmarkCutHeuristic(const Options &opts);
     virtual ~IncrementalLandmarkCutHeuristic();
-    virtual void free_up_memory(SearchSpace &search_space);
 };
 
 

@@ -123,12 +123,6 @@ int EagerSearch::step() {
     search_progress.inc_evaluations(preferred_operator_heuristics.size());
 
     for (int i = 0; i < applicable_ops.size(); i++) {
-        // HACK: should call this whenever memory is about to run out
-        for (int j = 0; j < heuristics.size(); j++) {
-            Heuristic *h = heuristics[j];
-            h->free_up_memory(search_space);
-        }
-
         const Operator *op = applicable_ops[i];
 
         if ((node.get_real_g() + op->get_cost()) >= bound)
