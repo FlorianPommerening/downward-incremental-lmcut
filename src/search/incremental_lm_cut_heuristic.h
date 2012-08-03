@@ -21,7 +21,7 @@ typedef boost::shared_ptr<Landmark> LandmarkPtr;
 
 struct SavedHeuristicOutcome {
     vector<LandmarkPtr> landmarks;
-    vector<int> operator_costs;
+    map<RelaxedOperator *, int> operator_cost_changes;
     int f;
 };
 
@@ -48,6 +48,8 @@ private:
     vector<int> deletion_schedule;
     void remove_meta_information(int state_id);
     virtual void free_up_memory();
+
+    void restore_operator_costs(SavedHeuristicOutcome &saved);
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,

@@ -13,6 +13,8 @@
 #include <iostream>
 #include <limits>
 #include <vector>
+#include <algorithm>
+
 using namespace std;
 
 Landmark::Landmark(vector<RelaxedOperator *> &operators, int cost) : vector<RelaxedOperator *>(operators), cost(cost) {
@@ -51,6 +53,19 @@ void IncrementalLandmarkCutHeuristic::initialize() {
 }
 
 
+void IncrementalLandmarkCutHeuristic::restore_operator_costs(SavedHeuristicOutcome &saved) {
+    if (saved.parent_id == -1 || !saved_outcomes[saved.parent_id]) {
+        LandmarkCutHeuristic::reset_operator_costs();
+    } else {
+        restore_operator_costs(*saved_outcomes[saved.parent_id]);
+    }
+    typedef vector<pair<RelaxedOperator *, int> >::iterator iterator;
+    for (iterator it=saved.operator_cost_changes.begin(); it != saved.operator_cost_changes.end(); ++it) {
+        it->first->cost += it->second;
+    }
+}
+
+
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
     free_up_memory();
     if (!saved_outcomes[parent_state]) {
@@ -65,16 +80,15 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 
     has_parent_costs = true;
     bool h_dirty = false;
-    saved_outcomes[state] = new SavedHeuristicOutcome();
+    saved_outcomes[state] = new SavedHeuristicOutcome(parent_state.get_id());
+    saved_outcomes[parent_state]->children_ids.push_back(state.get_id());
     vector<LandmarkPtr> &current_landmarks = saved_outcomes[state]->landmarks;
-    vector<int> &parent_operator_costs = saved_outcomes[parent_state]->operator_costs;
     vector<LandmarkPtr> &parent_landmarks = saved_outcomes[parent_state]->landmarks;
+    vector<pair<RelaxedOperator *, int> > &operator_cost_changes = saved_outcomes[state]->operator_cost_changes;
 //    used_memory += sizeof(vector<LandmarkPtr>);
     current_landmarks.reserve(parent_landmarks.size());
 
-    for (int i = 0; i < parent_operator_costs.size(); ++i) {
-        relaxed_operators[i].cost = parent_operator_costs[i];
-    }
+    restore_operator_costs(*saved_outcomes[parent_state]);
 
     for (vector<LandmarkPtr>::iterator it_landmark = parent_landmarks.begin(); it_landmark != parent_landmarks.end(); ++it_landmark) {
         LandmarkPtr landmark = *it_landmark;
@@ -93,6 +107,8 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         } else {
             for (vector<RelaxedOperator *>::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
                 (*it_op)->cost += landmark->cost;
+                operator_cost_changes.push_back(make_pair(*it_op, landmark->cost));
+                used_memory += sizeof(pair<RelaxedOperator *, int>);
             }
         }
     }
@@ -115,6 +131,11 @@ void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, ve
     used_memory += landmark.size() * sizeof(RelaxedOperator *);
     used_memory += sizeof(Landmark);
     used_memory += sizeof(LandmarkPtr);
+
+    for (vector<RelaxedOperator *>::iterator it_op = landmark.begin(); it_op != landmark.end(); ++it_op) {
+        saved_outcomes[state]->operator_cost_changes.push_back(make_pair(*it_op, -cost));
+        used_memory += sizeof(pair<RelaxedOperator *, int>);
+    }
 }
 
 void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
@@ -127,21 +148,12 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     if (!saved_outcomes[state]) {
-        saved_outcomes[state] = new SavedHeuristicOutcome();
+        saved_outcomes[state] = new SavedHeuristicOutcome(-1);
     }
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
         remove_meta_information(state.get_id());
         return DEAD_END;
     }
-
-    // remember operator costs
-    vector<int> &operator_costs = saved_outcomes[state]->operator_costs;
-    operator_costs.resize(relaxed_operators.size());
-    for (int i = 0; i < relaxed_operators.size(); ++i) {
-        operator_costs[i] = relaxed_operators[i].cost;
-    }
-    used_memory += operator_costs.size() * sizeof(int);
-//    used_memory += sizeof(vector<int>);
 
     int result = 0;
     vector<LandmarkPtr> &landmarks = saved_outcomes[state]->landmarks;
@@ -154,16 +166,43 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     return result;
 }
 
+bool is_null(pair<RelaxedOperator *, int> const & x) {
+    return x.second == 0;
+}
+
 void IncrementalLandmarkCutHeuristic::remove_meta_information(int state_id) {
-    if (!saved_outcomes[state_id]) {
+    SavedHeuristicOutcome *saved = saved_outcomes[state_id];
+    if (!saved) {
         return;
     }
-    vector<int> &operator_costs = saved_outcomes[state_id]->operator_costs;
-    used_memory -= operator_costs.size() * sizeof(int);
-//        used_memory -= sizeof(vector<int>);
+    SavedHeuristicOutcome *parent = 0;
+    if (saved->parent_id != -1) {
+        parent = saved_outcomes[saved->parent_id];
+    }
+    used_memory -= saved->operator_cost_changes.size() * sizeof(pair<RelaxedOperator *, int>);
+    for (vector<int>::iterator child_it=saved->children_ids.begin(); child_it != saved->children_ids.end(); ++child_it) {
+        SavedHeuristicOutcome *child = saved_outcomes[*child_it];
+        child->parent_id = saved->parent_id;
+        if (parent) {
+            parent->children_ids.push_back(*child_it);
+        }
+        used_memory -= child->operator_cost_changes.size() * sizeof(pair<RelaxedOperator *, int>);
+        // merge changes from saved and child. leave out entries that cancel each other out.
+        map<RelaxedOperator *, int> changes(child->operator_cost_changes.begin(), child->operator_cost_changes.end());
+        for (vector<pair<RelaxedOperator*, int> >::iterator it=saved->operator_cost_changes.begin(); it != saved->operator_cost_changes.end(); ++it) {
+            map<RelaxedOperator *, int>::iterator entry = changes.find(it->first);
+            if (entry != changes.end()) {
+                entry->second += it->second;
+            } else {
+                changes[it->first] = it->second;
+            }
+        }
+        child->operator_cost_changes.clear();
+        std::remove_copy_if(changes.begin(), changes.end(), std::back_inserter(child->operator_cost_changes), is_null);
+        used_memory += child->operator_cost_changes.size() * sizeof(pair<RelaxedOperator *, int>);
+    }
 
-    vector<LandmarkPtr> &landmarks = saved_outcomes[state_id]->landmarks;
-    for (vector<LandmarkPtr>::iterator it_landmark = landmarks.begin(); it_landmark != landmarks.end(); ++it_landmark) {
+    for (vector<LandmarkPtr>::iterator it_landmark = saved->landmarks.begin(); it_landmark != saved->landmarks.end(); ++it_landmark) {
         LandmarkPtr &landmark = *it_landmark;
         used_memory -= sizeof(LandmarkPtr);
         if (landmark.unique()) {
@@ -172,8 +211,10 @@ void IncrementalLandmarkCutHeuristic::remove_meta_information(int state_id) {
         }
     }
 
-
-    delete saved_outcomes[state_id];
+    if (parent) {
+        parent->children_ids.erase(std::remove(parent->children_ids.begin(), parent->children_ids.end(), state_id), parent->children_ids.end());
+    }
+    delete saved;
     saved_outcomes[state_id] = 0;
 //    used_memory -= sizeof(vector<LandmarkPtr>);
 }
