@@ -5,13 +5,14 @@
 #include "state_proxy.h"
 #include "search_space.h"
 #include "per_state_information.h"
+#include "memory_tracking_allocator.h"
 
 #include <boost/shared_ptr.hpp>
 
 
 // wraps vector<RelaxedOperator *> to add costs
 // adding or removing operators after creation does *not* update costs (not implemented)
-class Landmark : public vector<RelaxedOperator *> {
+class Landmark : public vector<RelaxedOperator *, MemoryTrackingAllocator<RelaxedOperator *> > {
 public:
     int cost;
     Landmark(vector<RelaxedOperator *> &operators, int cost);
@@ -20,11 +21,11 @@ public:
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
 
 struct SavedHeuristicOutcome {
-    vector<LandmarkPtr> landmarks;
+    vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > landmarks;
     int f;
 };
 
-struct OperatorCostChanges : vector<pair<RelaxedOperator *, int> > {
+struct OperatorCostChanges : vector<pair<RelaxedOperator *, int>, MemoryTrackingAllocator<pair<RelaxedOperator *, int> > > {
     OperatorCostChanges(int _parent_id) :
         parent_id(_parent_id),
         open_children(0) {
@@ -67,7 +68,6 @@ private:
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
-    unsigned long used_memory;
 
     PerStateInformation<SavedHeuristicOutcome *> saved_outcomes;
     PerStateInformation<OperatorCostChanges *> operator_cost_changes;
@@ -75,7 +75,7 @@ private:
 
     vector<int> deletion_schedule;
     void remove_meta_information(int state_id);
-    virtual void free_up_memory();
+    virtual void free_up_memory(bool can_recurse=true);
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,

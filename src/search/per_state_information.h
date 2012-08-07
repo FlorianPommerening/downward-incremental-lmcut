@@ -2,6 +2,7 @@
 #define PER_STATE_INFORMATION_H
 
 #include "state.h"
+#include "memory_tracking_allocator.h"
 
 #include <vector>
 #include <assert.h>
@@ -10,7 +11,7 @@ template<class Entry>
 class PerStateInformation {
 private:
     const Entry default_value;
-    std::vector<Entry> entries;
+    std::vector<Entry, MemoryTrackingAllocator<Entry> > entries;
 public:
     PerStateInformation()
         : default_value() {
@@ -37,6 +38,10 @@ public:
 
     int size() {
         return entries.size();
+    }
+
+    int get_used_memory() {
+        return entries.get_used_memory();
     }
 };
 

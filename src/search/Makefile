@@ -33,6 +33,7 @@ HEADERS = \
           iterated_search.h \
           lazy_search.h \
           max_evaluator.h \
+          memory_tracking_allocator.h \
           operator.h \
           operator_cost.h \
           option_parser.h \
@@ -76,6 +77,7 @@ HEADERS += hm_heuristic.h
 HEADERS += lm_cut_heuristic.h
 HEADERS += incremental_lm_cut_heuristic.h
 HEADERS += max_heuristic.h
+
 
 HEADERS += merge_and_shrink/abstraction.h \
            merge_and_shrink/label_reducer.h \
