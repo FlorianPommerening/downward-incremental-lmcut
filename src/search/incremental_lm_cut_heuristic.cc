@@ -25,7 +25,7 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       reevaluate_parent(opts.get<bool>("reevaluate_parent")),
       memory_limit(opts.get<unsigned int>("memory_limit")),
       used_memory(0),
-      has_parent_costs(false) {
+      has_parent_data(false) {
 }
 
 IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
@@ -54,7 +54,7 @@ void IncrementalLandmarkCutHeuristic::initialize() {
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
     free_up_memory();
     if (!saved_outcomes[parent_state]) {
-        has_parent_costs = false;
+        has_parent_data = false;
         if (reevaluate_parent) {
             compute_heuristic(parent_state);
             // now the information for the parent node has to exist. continue as planned
@@ -63,18 +63,19 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         }
     }
 
-    has_parent_costs = true;
+    has_parent_data = true;
     bool h_dirty = false;
     saved_outcomes[state] = new SavedHeuristicOutcome();
-    vector<LandmarkPtr> &current_landmarks = saved_outcomes[state]->landmarks;
-    vector<int> &parent_operator_costs = saved_outcomes[parent_state]->operator_costs;
-    vector<LandmarkPtr> &parent_landmarks = saved_outcomes[parent_state]->landmarks;
-//    used_memory += sizeof(vector<LandmarkPtr>);
-    current_landmarks.reserve(parent_landmarks.size());
+    used_memory += sizeof(SavedHeuristicOutcome);
+    operator_cost_changes[state] = new OperatorCostChanges(parent_state.get_id());
+    used_memory += sizeof(OperatorCostChanges);
 
-    for (int i = 0; i < parent_operator_costs.size(); ++i) {
-        relaxed_operators[i].cost = parent_operator_costs[i];
-    }
+    operator_cost_changes[parent_state.get_id()]->open_children++;
+
+    vector<LandmarkPtr> &current_landmarks = saved_outcomes[state]->landmarks;
+    vector<LandmarkPtr> &parent_landmarks = saved_outcomes[parent_state]->landmarks;
+
+    operator_cost_changes[parent_state]->update_costs(relaxed_operators, operator_cost_changes);
 
     for (vector<LandmarkPtr>::iterator it_landmark = parent_landmarks.begin(); it_landmark != parent_landmarks.end(); ++it_landmark) {
         LandmarkPtr landmark = *it_landmark;
@@ -93,6 +94,8 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         } else {
             for (vector<RelaxedOperator *>::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
                 (*it_op)->cost += landmark->cost;
+                operator_cost_changes[state]->push_back(make_pair(*it_op, landmark->cost));
+                used_memory += sizeof(pair<RelaxedOperator*, int>);
             }
         }
     }
@@ -115,12 +118,17 @@ void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, ve
     used_memory += landmark.size() * sizeof(RelaxedOperator *);
     used_memory += sizeof(Landmark);
     used_memory += sizeof(LandmarkPtr);
+
+    for (Landmark::iterator it_op = landmark.begin(); it_op != landmark.end(); ++it_op) {
+        operator_cost_changes[state]->push_back(make_pair(*it_op, -cost));
+        used_memory += sizeof(pair<RelaxedOperator*, int>);
+    }
 }
 
 void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
     // in all other states we skip this because we copy the old values in reach_state instead of reseting them.
     // it would be nicer to copy them in this function, but we do not have the parent state and used operator here.
-    if (!has_parent_costs) {
+    if (!has_parent_data) {
         LandmarkCutHeuristic::reset_operator_costs();
     }
 }
@@ -128,20 +136,14 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     if (!saved_outcomes[state]) {
         saved_outcomes[state] = new SavedHeuristicOutcome();
+        used_memory += sizeof(SavedHeuristicOutcome);
+        operator_cost_changes[state] = new OperatorCostChanges(-1);
+        used_memory += sizeof(OperatorCostChanges);
     }
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
         remove_meta_information(state.get_id());
         return DEAD_END;
     }
-
-    // remember operator costs
-    vector<int> &operator_costs = saved_outcomes[state]->operator_costs;
-    operator_costs.resize(relaxed_operators.size());
-    for (int i = 0; i < relaxed_operators.size(); ++i) {
-        operator_costs[i] = relaxed_operators[i].cost;
-    }
-    used_memory += operator_costs.size() * sizeof(int);
-//    used_memory += sizeof(vector<int>);
 
     int result = 0;
     vector<LandmarkPtr> &landmarks = saved_outcomes[state]->landmarks;
@@ -158,9 +160,6 @@ void IncrementalLandmarkCutHeuristic::remove_meta_information(int state_id) {
     if (!saved_outcomes[state_id]) {
         return;
     }
-    vector<int> &operator_costs = saved_outcomes[state_id]->operator_costs;
-    used_memory -= operator_costs.size() * sizeof(int);
-//        used_memory -= sizeof(vector<int>);
 
     vector<LandmarkPtr> &landmarks = saved_outcomes[state_id]->landmarks;
     for (vector<LandmarkPtr>::iterator it_landmark = landmarks.begin(); it_landmark != landmarks.end(); ++it_landmark) {
@@ -175,7 +174,22 @@ void IncrementalLandmarkCutHeuristic::remove_meta_information(int state_id) {
 
     delete saved_outcomes[state_id];
     saved_outcomes[state_id] = 0;
-//    used_memory -= sizeof(vector<LandmarkPtr>);
+    used_memory -= sizeof(SavedHeuristicOutcome);
+
+    // delete all op cost infos that are no longer needed
+    int id = state_id;
+    while (id != -1 && !saved_outcomes[id] && operator_cost_changes[id]->open_children == 0) {
+        int parent_id = operator_cost_changes[id]->parent_id;
+        used_memory -= operator_cost_changes[id]->size() * sizeof(pair<RelaxedOperator *, int>);
+        used_memory -= sizeof(OperatorCostChanges);
+        delete operator_cost_changes[id];
+        operator_cost_changes[id] = 0;
+        if (parent_id != -1) {
+            operator_cost_changes[parent_id]->open_children--;
+        }
+        id = parent_id;
+    }
+
 }
 
 void IncrementalLandmarkCutHeuristic::free_up_memory() {
@@ -199,7 +213,7 @@ void IncrementalLandmarkCutHeuristic::free_up_memory() {
             }
         }
         sort(deletion_schedule.begin(), deletion_schedule.end(), SortByFValue(saved_outcomes));
-        cout << "done" << endl;
+        cout << "done (" << deletion_schedule.size() << " elements scheduled for deletion)" << endl;
         // call this again to ensure that enough nodes are deleted
         free_up_memory();
     }

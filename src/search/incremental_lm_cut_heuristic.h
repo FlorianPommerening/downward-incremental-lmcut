@@ -21,8 +21,35 @@ typedef boost::shared_ptr<Landmark> LandmarkPtr;
 
 struct SavedHeuristicOutcome {
     vector<LandmarkPtr> landmarks;
-    vector<int> operator_costs;
     int f;
+};
+
+struct OperatorCostChanges : vector<pair<RelaxedOperator *, int> > {
+    OperatorCostChanges(int _parent_id) :
+        parent_id(_parent_id),
+        open_children(0) {
+    }
+
+    int parent_id;
+    int open_children;
+
+    void update_costs(vector<RelaxedOperator> &operators, PerStateInformation<OperatorCostChanges *> &changes) {
+        OperatorCostChanges *parent = 0;
+        if (parent_id != -1) {
+            parent = changes[parent_id];
+        }
+        if (parent) {
+            parent->update_costs(operators, changes);
+        } else {
+            for (vector<RelaxedOperator>::iterator it=operators.begin(); it != operators.end(); ++it) {
+                it->cost = it->base_cost;
+            }
+        }
+        for (iterator it=begin(); it != end(); ++it) {
+            it->first->cost += it->second;
+        }
+
+    }
 };
 
 struct SortByFValue {
@@ -43,7 +70,8 @@ private:
     unsigned long used_memory;
 
     PerStateInformation<SavedHeuristicOutcome *> saved_outcomes;
-    bool has_parent_costs;
+    PerStateInformation<OperatorCostChanges *> operator_cost_changes;
+    bool has_parent_data;
 
     vector<int> deletion_schedule;
     void remove_meta_information(int state_id);
