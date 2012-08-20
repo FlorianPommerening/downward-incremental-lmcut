@@ -19,6 +19,7 @@ EagerSearch::EagerSearch(
       reopen_closed_nodes(opts.get<bool>("reopen_closed")),
       do_pathmax(opts.get<bool>("pathmax")),
       use_multi_path_dependence(opts.get<bool>("mpd")),
+      mark_children_as_finished(opts.get<bool>("mark_children_as_finished")),
       open_list(opts.get<OpenList<state_var_t *> *>("open")),
       f_evaluator(opts.get<ScalarEvaluator *>("f_eval")) {
     if (opts.contains("preferred")) {
@@ -158,9 +159,6 @@ int EagerSearch::step() {
             // We have not seen this state before.
             // Evaluate and create a new node.
             for (size_t i = 0; i < heuristics.size(); i++)
-
-                // HACK changed succ_state to succ_node.get_state()
-                // heuristics[i]->evaluate(succ_state);
                 heuristics[i]->evaluate(succ_node.get_state());
             succ_node.clear_h_dirty();
             search_progress.inc_evaluated_states();
@@ -192,6 +190,13 @@ int EagerSearch::step() {
             }
             succ_node.open(succ_h, node, op);
 
+            // HACK try to maintain only met information for boundary nodes
+            // only useful for incremental lmcut atm
+            if (mark_children_as_finished) {
+                for (size_t i = 0; i < heuristics.size(); i++) {
+                    heuristics[i]->finished_state(succ_node.get_state(), succ_node.get_real_g() + succ_node.get_h(), true);
+                }
+            }
             open_list->insert(succ_node.get_state_buffer());
             if (search_progress.check_h_progress(succ_node.get_g())) {
                 reward_progress();
@@ -359,6 +364,8 @@ static SearchEngine *_parse_astar(OptionParser &parser) {
                             "use pathmax correction");
     parser.add_option<bool>("mpd", false,
                             "use multi-path dependence (LM-A*)");
+    parser.add_option<bool>("mark_children_as_finished", false,
+                            "Only usefull for incremental_lmcut at the moment. Use together with reevaluate_parent to use incremental computation only for successor generation.");
     SearchEngine::add_options_to_parser(parser);
     Options opts = parser.parse();
 
