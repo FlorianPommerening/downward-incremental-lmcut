@@ -168,7 +168,6 @@ int IDAStarSearch::step() {
             if (heuristic->is_dead_end()) {
                 succ_node.mark_as_dead_end();
                 search_progress.inc_dead_ends();
-                succ_node.close();
                 heuristic->finished_state(succ_node.get_state(), -1, false);
                 continue;
             }
