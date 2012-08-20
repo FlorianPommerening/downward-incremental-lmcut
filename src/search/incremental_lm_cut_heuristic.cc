@@ -81,6 +81,8 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         has_parent_data = false;
         if (reevaluate_parent) {
             compute_heuristic(parent_state);
+            parent_node_info_it = node_infos.find(parent_proxy);
+            assert(parent_node_info_it != node_infos.end());
             // now the information for the parent node has to exist. continue as planned
         } else {
             return true;
