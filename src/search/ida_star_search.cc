@@ -36,6 +36,7 @@ void OpenStackEntry::reset() {
 IDAStarSearch::IDAStarSearch(const Options &opts)
         : SearchEngine(opts),
         remember_pruned_nodes(opts.get<bool>("remember_pruned_nodes")),
+        lookup_known_f_values(opts.get<bool>("lookup_known_f_values")),
         heuristic(opts.get<Heuristic *>("heuristic")) {
 }
 
@@ -184,8 +185,16 @@ int IDAStarSearch::step() {
                    (succ_g == succ_node.get_real_g() && !remember_pruned_nodes &&
                     succ_node.is_closed() && succ_node.get_layer() < layer)) {
             // We found a new cheapest path to an open or closed state.
+            if (succ_node.get_layer() == layer || lookup_known_f_values) {
+                succ_f = succ_g + succ_node.get_h();
+            } else {
+                heuristic->reach_state(s, *op, succ_node.get_state());
+                heuristic->evaluate(succ_node.get_state());
+                search_progress.inc_evaluated_states();
+                search_progress.inc_evaluations(1);
+                succ_f = succ_g + heuristic->get_heuristic();
+            }
             succ_node.set_layer(layer);
-            succ_f = succ_g + succ_node.get_h();
             check_goal = (succ_g < succ_node.get_real_g());
             add_node = true;
             succ_node.reopen(node, op);
@@ -199,6 +208,7 @@ int IDAStarSearch::step() {
                     next_layer_open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
                 }
                 heuristic->finished_state(succ_node.get_state(), succ_f, true);
+                succ_node.close();
                 continue;
             }
             open_stack.push_back(OpenStackEntry(succ_node.get_state_buffer()));
@@ -219,17 +229,13 @@ void IDAStarSearch::backtrack() {
     open_stack.pop_back();
 }
 
-
-
-
-
-
-
 static SearchEngine *_parse(OptionParser &parser) {
     parser.add_option<Heuristic *>
         ("heuristic", "Heuristic evaluator for node pruning");
     parser.add_option<bool>("remember_pruned_nodes", false,
                             "Keep a list of pruned nodes. This makes the IDA* search behave more like an A* search.");
+    parser.add_option<bool>("lookup_known_f_values", false,
+                            "By default all f values are calculated by the heuristic. If this is set to true, the heuristic calculation will not run for nodes, where the f value is already known.");
     SearchEngine::add_options_to_parser(parser);
     Options opts = parser.parse();
 
