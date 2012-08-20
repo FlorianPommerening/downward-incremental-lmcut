@@ -18,52 +18,37 @@ public:
 };
 
 struct OperatorCostChanges;
+struct PerNodeInfo;
 
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
 typedef vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > SavedLandmarks;
+
+
+
 typedef __gnu_cxx::hash_map<StateProxy,
-                            SavedLandmarks,
+                            PerNodeInfo,
                             __gnu_cxx::hash<StateProxy>,
                             equal_to<StateProxy>,
                             MemoryTrackingAllocator<std::pair<const StateProxy,
-                                                              SavedLandmarks> > >
-        SavedLandmarksHashMap;
-typedef __gnu_cxx::hash_map<StateProxy,
-                            OperatorCostChanges*,
-                            __gnu_cxx::hash<StateProxy>,
-                            equal_to<StateProxy>,
-                            MemoryTrackingAllocator<std::pair<StateProxy,
-                                                              OperatorCostChanges*> > >
-        OperatorCostChangesHashMap;
+                                                              PerNodeInfo> > >
+        PerNodeInfoHashMap;
 
-
-
-struct OperatorCostChanges : vector<pair<RelaxedOperator *, int>, MemoryTrackingAllocator<pair<RelaxedOperator *, int> > > {
-    OperatorCostChanges(StateProxy _parent_proxy) :
-        parent_proxy(_parent_proxy),
-        open_children(0) {
-    }
-
+struct OperatorCostChanges : vector<pair<RelaxedOperator *, int>,
+                                    MemoryTrackingAllocator<pair<RelaxedOperator *, int> > > {
+    OperatorCostChanges(StateProxy _parent_proxy);
     StateProxy parent_proxy;
     int open_children;
 
-    void update_costs(vector<RelaxedOperator> &operators, OperatorCostChangesHashMap &changes) {
-        OperatorCostChanges *parent = 0;
-        if (parent_proxy.state_data) {
-            parent = changes[parent_proxy];
-        }
-        if (parent) {
-            parent->update_costs(operators, changes);
-        } else {
-            for (vector<RelaxedOperator>::iterator it=operators.begin(); it != operators.end(); ++it) {
-                it->cost = it->base_cost;
-            }
-        }
-        for (iterator it=begin(); it != end(); ++it) {
-            it->first->cost += it->second;
-        }
+    void update_costs(vector<RelaxedOperator> &operators, PerNodeInfoHashMap &node_infos);
+};
 
+struct PerNodeInfo {
+    PerNodeInfo(const SavedLandmarks &_landmarks, const OperatorCostChanges &_cost_changes) :
+        landmarks(_landmarks), cost_changes(_cost_changes) {
     }
+
+    SavedLandmarks landmarks;
+    OperatorCostChanges cost_changes;
 };
 
 
@@ -79,9 +64,8 @@ private:
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
-    SavedLandmarksHashMap node_landmarks;
-    OperatorCostChangesHashMap operator_cost_changes;
-    bool has_parent_costs;
+    PerNodeInfoHashMap node_infos;
+    bool has_parent_data;
     void remove_meta_information(StateProxy &state_proxy);
 protected:
     virtual void initialize();
