@@ -2,9 +2,6 @@
 #define IDA_STAR_SEARCH_H
 
 #include <vector>
-#include <deque>
-#include <map>
-
 
 #include "open_lists/open_list.h"
 #include "search_engine.h"
@@ -34,11 +31,8 @@ public:
 class IDAStarSearch : public SearchEngine {
     vector<OpenStackEntry> open_stack;
     bool remember_pruned_nodes;
-
-    // TODO reimplement using arbitrary open list here
-    typedef std::deque<OpenStackEntry> Bucket;
-    std::map<int, Bucket> next_layer_open_stack;
-
+    vector<OpenStackEntry> next_layer_open_stack;
+    bool lookup_known_f_values;
     void backtrack();
 
 protected:
