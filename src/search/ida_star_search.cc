@@ -71,6 +71,7 @@ void IDAStarSearch::initialize() {
 int IDAStarSearch::restart_with_next_bound(int _current_bound) {
     search_progress.report_f_value(current_bound);
     if (_current_bound > bound || _current_bound == numeric_limits<int>::max()) {
+        cout << "Completely explored state space -- no solution!" << endl;
         return FAILED;
     }
     assert(open_stack.empty());
