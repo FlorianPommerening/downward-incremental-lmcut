@@ -17,40 +17,18 @@ public:
     Landmark(vector<RelaxedOperator *> &operators, int cost);
 };
 
-struct OperatorCostChanges;
-struct PerNodeInfo;
-
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
 typedef vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > SavedLandmarks;
 
 
 
 typedef __gnu_cxx::hash_map<StateProxy,
-                            PerNodeInfo,
+                            SavedLandmarks,
                             __gnu_cxx::hash<StateProxy>,
                             equal_to<StateProxy>,
                             MemoryTrackingAllocator<std::pair<const StateProxy,
-                                                              PerNodeInfo> > >
-        PerNodeInfoHashMap;
-
-struct OperatorCostChanges : vector<pair<RelaxedOperator *, int>,
-                                    MemoryTrackingAllocator<pair<RelaxedOperator *, int> > > {
-    OperatorCostChanges(StateProxy _parent_proxy);
-    StateProxy parent_proxy;
-    int open_children;
-
-    void update_costs(vector<RelaxedOperator> &operators, PerNodeInfoHashMap &node_infos);
-};
-
-struct PerNodeInfo {
-    PerNodeInfo(const SavedLandmarks &_landmarks, const OperatorCostChanges &_cost_changes) :
-        landmarks(_landmarks), cost_changes(_cost_changes) {
-    }
-
-    SavedLandmarks landmarks;
-    OperatorCostChanges cost_changes;
-};
-
+                                                              SavedLandmarks> > >
+        SavedLandmarksMap;
 
 template<class T1, class T2>
 struct ComparePairByFirstComponent {
@@ -64,9 +42,10 @@ private:
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
-    PerNodeInfoHashMap node_infos;
-    bool has_parent_data;
-    void remove_meta_information(StateProxy &state_proxy);
+    SavedLandmarksMap saved_landmarks_map;
+    void remove_meta_information(StateProxy &state_proxy) {
+        saved_landmarks_map.erase(state_proxy);
+    }
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
@@ -74,7 +53,7 @@ protected:
     virtual void finished_state(const State &state, int f, bool is_on_frontier);
 
     virtual void discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost);
-    virtual void reset_operator_costs();
+    virtual void reset_operator_costs(const State &state);
     virtual int compute_heuristic(const State &state);
 public:
     IncrementalLandmarkCutHeuristic(const Options &opts);

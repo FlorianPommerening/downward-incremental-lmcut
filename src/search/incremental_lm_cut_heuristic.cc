@@ -19,36 +19,12 @@ Landmark::Landmark(vector<RelaxedOperator *> &operators, int cost) :
     cost(cost) {
 }
 
-OperatorCostChanges::OperatorCostChanges(StateProxy _parent_proxy) :
-    parent_proxy(_parent_proxy),
-    open_children(0) {
-}
-
-void OperatorCostChanges::update_costs(vector<RelaxedOperator> &operators, PerNodeInfoHashMap &node_infos) {
-
-    if (parent_proxy.state_data != 0) {
-        PerNodeInfoHashMap::iterator node_info_it = node_infos.find(parent_proxy);
-        assert(node_info_it != node_infos.end());
-        OperatorCostChanges &parent = node_info_it->second.cost_changes;
-        parent.update_costs(operators, node_infos);
-    } else {
-        for (vector<RelaxedOperator>::iterator it=operators.begin(); it != operators.end(); ++it) {
-            it->cost = it->base_cost;
-        }
-    }
-    for (iterator it=begin(); it != end(); ++it) {
-        it->first->cost += it->second;
-    }
-
-}
-
 // construction and destruction
 IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &opts)
     : LandmarkCutHeuristic(opts),
       keep_frontier(opts.get<bool>("keep_frontier")),
       reevaluate_parent(opts.get<bool>("reevaluate_parent")),
-      memory_limit(opts.get<unsigned int>("memory_limit")),
-      has_parent_data(false) {
+      memory_limit(opts.get<unsigned int>("memory_limit")) {
 }
 
 IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
@@ -73,44 +49,39 @@ void IncrementalLandmarkCutHeuristic::initialize() {
     }
 }
 
+void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
+    // Redo cost changes of current landmarks (if there are no current landmarks,
+    // this will just reset all costs to base costs)
+    LandmarkCutHeuristic::reset_operator_costs(state);
+    SavedLandmarks &current_landmarks = saved_landmarks_map[StateProxy(&state)];
+    for (SavedLandmarks::iterator it_landmark = current_landmarks.begin(); it_landmark != current_landmarks.end(); ++it_landmark) {
+        LandmarkPtr landmark = *it_landmark;
+        for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
+            (*it_op)->cost -= landmark->cost;
+        }
+    }
+}
 
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
     StateProxy parent_proxy = StateProxy(&parent_state);
-    PerNodeInfoHashMap::iterator parent_node_info_it = node_infos.find(parent_proxy);
-    if (parent_node_info_it == node_infos.end()) {
-        has_parent_data = false;
+    SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(parent_proxy);
+    if (parent_node_info_it == saved_landmarks_map.end()) {
         if (reevaluate_parent) {
             compute_heuristic(parent_state);
-            parent_node_info_it = node_infos.find(parent_proxy);
-            assert(parent_node_info_it != node_infos.end());
+            parent_node_info_it = saved_landmarks_map.find(parent_proxy);
+            assert(parent_node_info_it != saved_landmarks_map.end());
             // now the information for the parent node has to exist. continue as planned
         } else {
             return true;
         }
     }
 
-    has_parent_data = true;
     bool h_dirty = false;
 
-    StateProxy state_proxy(&state);
-    PerNodeInfoHashMap::iterator state_node_info_it = node_infos.find(state_proxy);
-    if (state_node_info_it == node_infos.end()) {
-        pair<PerNodeInfoHashMap::iterator, bool> insert_result =
-            node_infos.insert(make_pair(state_proxy,
-                                        PerNodeInfo(SavedLandmarks(),
-                                                    OperatorCostChanges(parent_proxy))));
-        state_node_info_it = insert_result.first;
-    }
+    SavedLandmarks &parent_landmarks = parent_node_info_it->second;
+    SavedLandmarks &current_landmarks = saved_landmarks_map[StateProxy(&state)];
 
-    OperatorCostChanges &parent_cost_changes = parent_node_info_it->second.cost_changes;
-    OperatorCostChanges &current_cost_changes = state_node_info_it->second.cost_changes;
-    SavedLandmarks &parent_landmarks = parent_node_info_it->second.landmarks;
-    SavedLandmarks &current_landmarks = state_node_info_it->second.landmarks;
-
-    parent_cost_changes.open_children++;
-    parent_cost_changes.update_costs(relaxed_operators, node_infos);
-
-
+    // Copy all landmarks that do not mention op
     for (SavedLandmarks::iterator it_landmark = parent_landmarks.begin(); it_landmark != parent_landmarks.end(); ++it_landmark) {
         LandmarkPtr landmark = *it_landmark;
         bool copy_landmark = true;
@@ -124,11 +95,6 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         }
         if (copy_landmark) {
             current_landmarks.push_back(landmark);
-        } else {
-            for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
-                (*it_op)->cost += landmark->cost;
-                current_cost_changes.push_back(make_pair(*it_op, landmark->cost));
-            }
         }
     }
     return h_dirty;
@@ -146,88 +112,35 @@ void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
-    PerNodeInfoHashMap::iterator state_info_it = node_infos.find(StateProxy(&state));
-    assert(state_info_it != node_infos.end());
-    PerNodeInfo &node_info = state_info_it->second;
-
     LandmarkPtr createdLandmark(new Landmark(landmark, cost));
-    node_info.landmarks.push_back(createdLandmark);
-    OperatorCostChanges &cost_changes = node_info.cost_changes;
-    for (vector<RelaxedOperator *>::iterator it_op = landmark.begin(); it_op != landmark.end(); ++it_op) {
-        cost_changes.push_back(make_pair(*it_op, -cost));
-    }
-}
-
-void IncrementalLandmarkCutHeuristic::reset_operator_costs() {
-    // in all other states we skip this because we copy the old values in reach_state instead of reseting them.
-    // it would be nicer to copy them in this function, but we do not have the parent state and used operator here.
-    if (!has_parent_data) {
-        LandmarkCutHeuristic::reset_operator_costs();
-    }
+    saved_landmarks_map[StateProxy(&state)].push_back(createdLandmark);
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     StateProxy state_proxy(&state);
-    PerNodeInfoHashMap::iterator state_node_info_it = node_infos.find(state_proxy);
-    if (state_node_info_it == node_infos.end()) {
-        pair<PerNodeInfoHashMap::iterator, bool> insert_result =
-            node_infos.insert(make_pair(state_proxy,
-                                        PerNodeInfo(SavedLandmarks(),
-                                                    OperatorCostChanges(StateProxy()))));
-        state_node_info_it = insert_result.first;
-    }
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
         remove_meta_information(state_proxy);
         return DEAD_END;
     }
 
     int result = 0;
-    SavedLandmarks &landmarks = state_node_info_it->second.landmarks;
+    SavedLandmarks &landmarks = saved_landmarks_map[state_proxy];
     for (SavedLandmarks::iterator it = landmarks.begin(); it != landmarks.end(); ++it) {
-        LandmarkPtr landmark = *it;
-        result += landmark->cost;
+        result += (*it)->cost;
     }
     return result;
-}
-
-void IncrementalLandmarkCutHeuristic::remove_meta_information(StateProxy &state_proxy) {
-    PerNodeInfoHashMap::iterator state_node_info_it = node_infos.find(state_proxy);
-    if (state_node_info_it == node_infos.end()) {
-        return;
-    }
-    // clearing by swaping with empty vector to ensure capacity reset;
-    SavedLandmarks empty;
-    state_node_info_it->second.landmarks.swap(empty);
-
-    // delete all op cost infos that are no longer needed
-    for(;;) {
-        if (!state_node_info_it->second.landmarks.empty()) {
-            break;
-        }
-        OperatorCostChanges &cost_changes = state_node_info_it->second.cost_changes;
-        if (cost_changes.open_children > 0) {
-            break;
-        }
-        node_infos.erase(state_node_info_it);
-        if (cost_changes.parent_proxy.state_data) {
-            state_node_info_it = node_infos.find(cost_changes.parent_proxy);
-            state_node_info_it->second.cost_changes.open_children--;
-        } else {
-            break;
-        }
-    }
 }
 
 void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &search_space) {
     if (g_memory_tracking_allocated < memory_limit) {
         return;
     }
-    int n = node_infos.size();
+    int n = saved_landmarks_map.size();
     cout << "Freeing memory by deleting meta information ... ";
     // try to find the nodes with maximal f value
     vector<pair<int, StateProxy> > states_by_f_value;
     states_by_f_value.reserve(n);
-    for (PerNodeInfoHashMap::iterator it = node_infos.begin(); it != node_infos.end(); ++it) {
+    for (SavedLandmarksMap::iterator it = saved_landmarks_map.begin(); it != saved_landmarks_map.end(); ++it) {
         StateProxy s = it->first;
         SearchNode n = search_space.get_node(State(s.state_data));
         // TODO this could lead to problem with multiple heuristics because n.get_h(); will return the value of only one of the heuristics
@@ -240,7 +153,7 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &search_space) 
         StateProxy s = states_by_f_value[i].second;
         remove_meta_information(s);
     }
-    cout << "done (removed info for " << n - node_infos.size() << " of " << n << " states)" << endl;
+    cout << "done (removed info for " << n - saved_landmarks_map.size() << " of " << n << " states)" << endl;
 }
 
 

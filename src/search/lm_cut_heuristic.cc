@@ -298,7 +298,7 @@ void LandmarkCutHeuristic::validate_h_max() const {
 }
 
 
-void LandmarkCutHeuristic::reset_operator_costs() {
+void LandmarkCutHeuristic::reset_operator_costs(const State &/*state*/) {
     // TODO: Possibly put back in some kind of preferred operator mechanism.
     for (int i = 0; i < relaxed_operators.size(); i++) {
         RelaxedOperator &op = relaxed_operators[i];
@@ -307,7 +307,7 @@ void LandmarkCutHeuristic::reset_operator_costs() {
 }
 
 int LandmarkCutHeuristic::compute_heuristic(const State &state) {
-    reset_operator_costs();
+    reset_operator_costs(state);
 
     //cout << "*" << flush;
     int total_cost = 0;

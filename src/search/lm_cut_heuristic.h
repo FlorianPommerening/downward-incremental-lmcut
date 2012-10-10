@@ -138,7 +138,7 @@ protected:
     virtual void initialize();
     virtual void discovered_landmark(const State & /*state*/, std::vector<RelaxedOperator *> & /*landmark*/, int /*cost*/) {
     }
-    virtual void reset_operator_costs();
+    virtual void reset_operator_costs(const State &state);
     virtual int compute_heuristic(const State &state);
 public:
     LandmarkCutHeuristic(const Options &opts);
