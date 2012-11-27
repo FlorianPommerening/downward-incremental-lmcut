@@ -4,21 +4,11 @@
 #include "lm_cut_heuristic.h"
 #include "state_proxy.h"
 #include "search_space.h"
-#include "memory_tracking_allocator.h"
-
-#include <boost/shared_ptr.hpp>
+#include "compressed_landmark.h"
 #include <ext/hash_map>
 
-// wraps vector<RelaxedOperator *> to add costs
-// adding or removing operators after creation does *not* update costs (not implemented)
-class Landmark : public vector<RelaxedOperator *, MemoryTrackingAllocator<RelaxedOperator *> > {
-public:
-    int cost;
-    Landmark(vector<RelaxedOperator *> &operators, int cost);
-};
 
-typedef boost::shared_ptr<Landmark> LandmarkPtr;
-typedef vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > SavedLandmarks;
+typedef vector<CompressedLandmarkPtr, MemoryTrackingAllocator<CompressedLandmarkPtr> > SavedLandmarks;
 
 
 
@@ -46,6 +36,8 @@ private:
     void remove_meta_information(StateProxy &state_proxy) {
         saved_landmarks_map.erase(state_proxy);
     }
+    std::vector<Landmark> current_decompressed_landmarks;
+    const State *current_state;
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,

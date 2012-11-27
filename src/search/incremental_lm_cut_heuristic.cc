@@ -14,17 +14,13 @@
 #include <vector>
 using namespace std;
 
-Landmark::Landmark(vector<RelaxedOperator *> &operators, int cost) :
-    vector<RelaxedOperator *, MemoryTrackingAllocator<RelaxedOperator *> >(operators.begin(), operators.end()),
-    cost(cost) {
-}
-
 // construction and destruction
 IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &opts)
     : LandmarkCutHeuristic(opts),
       keep_frontier(opts.get<bool>("keep_frontier")),
       reevaluate_parent(opts.get<bool>("reevaluate_parent")),
-      memory_limit(opts.get<unsigned int>("memory_limit")) {
+      memory_limit(opts.get<unsigned int>("memory_limit")),
+      current_state(0) {
 }
 
 IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
@@ -53,11 +49,11 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     // Redo cost changes of current landmarks (if there are no current landmarks,
     // this will just reset all costs to base costs)
     LandmarkCutHeuristic::reset_operator_costs(state);
-    SavedLandmarks &current_landmarks = saved_landmarks_map[StateProxy(&state)];
-    for (SavedLandmarks::iterator it_landmark = current_landmarks.begin(); it_landmark != current_landmarks.end(); ++it_landmark) {
-        LandmarkPtr landmark = *it_landmark;
-        for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
-            (*it_op)->cost -= landmark->cost;
+    assert(current_decompressed_landmarks.empty() || &state == current_state);
+    for (vector<Landmark>::iterator it_landmark = current_decompressed_landmarks.begin(); it_landmark != current_decompressed_landmarks.end(); ++it_landmark) {
+        Landmark &landmark = *it_landmark;
+        for (Landmark::iterator it_op = landmark.begin(); it_op != landmark.end(); ++it_op) {
+            (*it_op)->cost -= landmark.cost;
         }
     }
 }
@@ -80,12 +76,15 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 
     SavedLandmarks &parent_landmarks = parent_node_info_it->second;
     SavedLandmarks &current_landmarks = saved_landmarks_map[StateProxy(&state)];
+    current_decompressed_landmarks.clear();
+    current_state = &state;
 
     // Copy all landmarks that do not mention op
     for (SavedLandmarks::iterator it_landmark = parent_landmarks.begin(); it_landmark != parent_landmarks.end(); ++it_landmark) {
-        LandmarkPtr landmark = *it_landmark;
+        CompressedLandmarkPtr landmark = *it_landmark;
+        Landmark decompressed_landmark = landmark->decompress(relaxed_operators);
         bool copy_landmark = true;
-        for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
+        for (Landmark::iterator it_op = decompressed_landmark.begin(); it_op != decompressed_landmark.end(); ++it_op) {
             const Operator *base_operator = (*it_op)->op;
             if (base_operator == &op) {
                 copy_landmark = false;
@@ -95,6 +94,7 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
         }
         if (copy_landmark) {
             current_landmarks.push_back(landmark);
+            current_decompressed_landmarks.push_back(decompressed_landmark);
         }
     }
     return h_dirty;
@@ -112,7 +112,7 @@ void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
-    LandmarkPtr createdLandmark(new Landmark(landmark, cost));
+    CompressedLandmarkPtr createdLandmark(new CompressedLandmark(landmark, cost));
     saved_landmarks_map[StateProxy(&state)].push_back(createdLandmark);
 }
 
