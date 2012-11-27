@@ -8,7 +8,7 @@
 #include <ext/hash_map>
 
 
-typedef vector<CompressedLandmarkPtr, MemoryTrackingAllocator<CompressedLandmarkPtr> > SavedLandmarks;
+typedef vector<CompressedLandmark, MemoryTrackingAllocator<CompressedLandmark> > SavedLandmarks;
 
 
 

@@ -3,9 +3,8 @@
 
 #include "lm_cut_heuristic.h"
 #include "memory_tracking_allocator.h"
-#include <EWAHBoolArray/headers/ewah.h>
 
-#include <boost/shared_ptr.hpp>
+#include <EWAHBoolArray/headers/ewah.h>
 #include <vector>
 
 // wraps vector<RelaxedOperator *> to add costs
@@ -16,17 +15,27 @@ public:
     Landmark(vector<RelaxedOperator *> &operators, int cost);
 };
 
+// Stores one landmark in a continous area of memory.
+// Format:
+// | 32 bit: reference counter                    |
+// | 32 bit: cost of landmark                     |
+// | 1 bit: is_bit_array | 31 bit: length of data |
+// | variable length data                         |
 class CompressedLandmark {
-    uint32_t* operators;
-    bool is_bit_array : 1;
-    unsigned short length : 15;
+    struct Header {
+        uint32_t reference_count;
+        uint32_t cost;
+        bool is_bit_array: 1;
+        uint32_t length: 31;
+    };
+
+    uint32_t* data;
 public:
-    unsigned short cost;
-    CompressedLandmark(const std::vector<RelaxedOperator *> &landmark, int cost_);
+    uint32_t get_cost();
+    CompressedLandmark(const std::vector<RelaxedOperator *> &landmark, uint32_t cost_);
+    CompressedLandmark(const CompressedLandmark& other);
     ~CompressedLandmark();
     Landmark decompress(const std::vector<RelaxedOperator> &relaxed_operators);
 };
-
-typedef boost::shared_ptr<CompressedLandmark> CompressedLandmarkPtr;
 
 #endif

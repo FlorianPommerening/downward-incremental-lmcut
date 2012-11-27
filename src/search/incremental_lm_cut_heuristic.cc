@@ -49,7 +49,7 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     // Redo cost changes of current landmarks (if there are no current landmarks,
     // this will just reset all costs to base costs)
     LandmarkCutHeuristic::reset_operator_costs(state);
-    assert(current_decompressed_landmarks.empty() || &state == current_state);
+    assert(current_decompressed_landmarks.empty() || state == *current_state);
     for (vector<Landmark>::iterator it_landmark = current_decompressed_landmarks.begin(); it_landmark != current_decompressed_landmarks.end(); ++it_landmark) {
         Landmark &landmark = *it_landmark;
         for (Landmark::iterator it_op = landmark.begin(); it_op != landmark.end(); ++it_op) {
@@ -81,8 +81,8 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 
     // Copy all landmarks that do not mention op
     for (SavedLandmarks::iterator it_landmark = parent_landmarks.begin(); it_landmark != parent_landmarks.end(); ++it_landmark) {
-        CompressedLandmarkPtr landmark = *it_landmark;
-        Landmark decompressed_landmark = landmark->decompress(relaxed_operators);
+        CompressedLandmark &landmark = *it_landmark;
+        Landmark decompressed_landmark = landmark.decompress(relaxed_operators);
         bool copy_landmark = true;
         for (Landmark::iterator it_op = decompressed_landmark.begin(); it_op != decompressed_landmark.end(); ++it_op) {
             const Operator *base_operator = (*it_op)->op;
@@ -112,8 +112,7 @@ void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
-    CompressedLandmarkPtr createdLandmark(new CompressedLandmark(landmark, cost));
-    saved_landmarks_map[StateProxy(&state)].push_back(createdLandmark);
+    saved_landmarks_map[StateProxy(&state)].push_back(CompressedLandmark(landmark, cost));
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
@@ -126,7 +125,7 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
     int result = 0;
     SavedLandmarks &landmarks = saved_landmarks_map[state_proxy];
     for (SavedLandmarks::iterator it = landmarks.begin(); it != landmarks.end(); ++it) {
-        result += (*it)->cost;
+        result += it->get_cost();
     }
     return result;
 }
