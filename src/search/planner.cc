@@ -6,6 +6,9 @@
 #include "utilities.h"
 #include "search_engine.h"
 
+// HACK
+#include "memory_tracking_allocator.h"
+
 
 #include <iostream>
 using namespace std;
@@ -44,6 +47,15 @@ int main(int argc, const char **argv) {
     engine->save_plan_if_necessary();
     engine->statistics();
     engine->heuristic_statistics();
+
+    //HACK
+    cout << "Tracked memory: " << g_memory_tracking_allocated / 1024 << " KB" << endl;
+    cout << "Tracked memory (states 1): " << g_memory_tracking_states_1 / 1024 << " KB" << endl;
+    cout << "Tracked memory (states 2): " << g_memory_tracking_states_2 / 1024 << " KB" << endl;
+    cout << "Tracked memory (states ht): " << g_memory_tracking_states_ht / 1024 << " KB" << endl;
+    cout << "Tracked memory (landmarks bit array): " << g_memory_tracking_landmarks_bit_array / 1024 << " KB" << endl;
+    cout << "Tracked memory (landmarks indices): " << g_memory_tracking_landmarks_indices / 1024 << " KB" << endl;
+
     cout << "Search time: " << search_timer << endl;
     cout << "Total time: " << g_timer << endl;
 

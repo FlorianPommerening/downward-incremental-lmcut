@@ -5,6 +5,11 @@
 #include <vector>
 
 extern unsigned long g_memory_tracking_allocated;
+extern unsigned long g_memory_tracking_states_1;
+extern unsigned long g_memory_tracking_states_2;
+extern unsigned long g_memory_tracking_states_ht;
+extern unsigned long g_memory_tracking_landmarks_bit_array;
+extern unsigned long g_memory_tracking_landmarks_indices;
 
 template<class T>
 struct MemoryTrackingAllocator : std::allocator<T> {

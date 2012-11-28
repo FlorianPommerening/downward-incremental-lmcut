@@ -51,6 +51,15 @@ CompressedLandmark::CompressedLandmark(const CompressedLandmark& other)
 CompressedLandmark::~CompressedLandmark() {
     data[0]--;
     if (!data[0]) {
+        Header header = *((Header*) data);
+        if (header.is_bit_array) {
+            g_memory_tracking_allocated -= (3 + header.length) * sizeof(uint32_t);
+            g_memory_tracking_landmarks_bit_array -= (3 + header.length) * sizeof(uint32_t);
+        } else {
+            int compressed_indeces_size = (header.length * OPERATOR_WORD_LENGTH + 31) / 32;
+            g_memory_tracking_allocated -= (3 + compressed_indeces_size) * sizeof(uint32_t);
+            g_memory_tracking_landmarks_indices -= (3 + compressed_indeces_size) * sizeof(uint32_t);
+        }
         delete[] data;
     }
 }
@@ -99,6 +108,9 @@ bool CompressedLandmark::compress_index_set(Header &header, const std::vector<ui
     assert(sizeof(header) / sizeof(uint32_t) == 3);
 
     data = new uint32_t[3 + compressed_indeces_size];
+    g_memory_tracking_allocated += (3 + compressed_indeces_size) * sizeof(uint32_t);
+    g_memory_tracking_landmarks_indices += (3 + compressed_indeces_size) * sizeof(uint32_t);
+
     *((Header *) data) = header;
 
     unsigned char *p_current_8 = (unsigned char *) (data + 3);
@@ -154,6 +166,8 @@ bool CompressedLandmark::compress_bit_array(Header &header, const std::vector<ui
     assert(sizeof(header) / sizeof(uint32_t) == 3);
 
     data = new uint32_t[3 + header.length];
+    g_memory_tracking_allocated += (3 + header.length) * sizeof(uint32_t);
+    g_memory_tracking_landmarks_bit_array += (3 + header.length) * sizeof(uint32_t);
     *((Header *) data) = header;
     std::copy(buffer.begin(), buffer.end(), data + 3);
     return true;

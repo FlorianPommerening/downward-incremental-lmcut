@@ -4,6 +4,9 @@
 #include "state.h"
 #include "globals.h"
 
+//HACK
+#include "memory_tracking_allocator.h"
+
 #include <ext/hash_map>
 
 
@@ -45,6 +48,9 @@ public:
     }
     void make_permanent() const {
         state_var_t *new_buffer = new state_var_t[g_variable_domain.size()];
+        // HACK should automatically keep track of new and delete, but this never get deleted
+        g_memory_tracking_allocated += (g_variable_domain.size()) * sizeof(state_var_t);
+        g_memory_tracking_states_2 += (g_variable_domain.size()) * sizeof(state_var_t);
         for (int i = 0; i < g_variable_domain.size(); i++)
             new_buffer[i] = state_data[i];
         state_data = new_buffer;
