@@ -43,6 +43,7 @@ void IncrementalLandmarkCutHeuristic::initialize() {
         cout << "Memory limit is " << memory_limit * 1024 * 1024 << " bytes (" << memory_limit << " MB). Meta information will be pruned if it takes up more space." << endl;
         memory_limit *= 1024 * 1024;
     }
+    CompressedLandmark::set_operators(relaxed_operators);
 }
 
 void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
@@ -82,7 +83,7 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
     // Copy all landmarks that do not mention op
     for (SavedLandmarks::iterator it_landmark = parent_landmarks.begin(); it_landmark != parent_landmarks.end(); ++it_landmark) {
         CompressedLandmark &landmark = *it_landmark;
-        Landmark decompressed_landmark = landmark.decompress(relaxed_operators);
+        Landmark decompressed_landmark = landmark.decompress();
         bool copy_landmark = true;
         for (Landmark::iterator it_op = decompressed_landmark.begin(); it_op != decompressed_landmark.end(); ++it_op) {
             const Operator *base_operator = (*it_op)->op;
