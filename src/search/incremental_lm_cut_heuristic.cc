@@ -17,6 +17,7 @@ using namespace std;
 // construction and destruction
 IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &opts)
     : LandmarkCutHeuristic(opts),
+      incremental_computation(true),
       keep_frontier(opts.get<bool>("keep_frontier")),
       reevaluate_parent(opts.get<bool>("reevaluate_parent")),
       memory_limit(opts.get<unsigned int>("memory_limit")),
@@ -50,6 +51,9 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     // Redo cost changes of current landmarks (if there are no current landmarks,
     // this will just reset all costs to base costs)
     LandmarkCutHeuristic::reset_operator_costs(state);
+    if (!incremental_computation) {
+        return;
+    }
     assert(current_decompressed_landmarks.empty() || state == *current_state);
     for (vector<Landmark>::iterator it_landmark = current_decompressed_landmarks.begin(); it_landmark != current_decompressed_landmarks.end(); ++it_landmark) {
         Landmark &landmark = *it_landmark;
@@ -60,6 +64,9 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
 }
 
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
+    if (!incremental_computation) {
+        return false;
+    }
     StateProxy parent_proxy = StateProxy(&parent_state);
     SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(parent_proxy);
     if (parent_node_info_it == saved_landmarks_map.end()) {
@@ -103,6 +110,9 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 
 void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f*/,
                                                      bool is_on_frontier) {
+    if (!incremental_computation) {
+        return;
+    }
     StateProxy proxy(&state);
     if (is_on_frontier && keep_frontier) {
         // TODO could also keep only a fixed amount of states (keep lower f values)
@@ -113,10 +123,16 @@ void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
+    if (!incremental_computation) {
+        return;
+    }
     saved_landmarks_map[StateProxy(&state)].push_back(CompressedLandmark(landmark, cost));
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
+    if (!incremental_computation) {
+        return LandmarkCutHeuristic::compute_heuristic(state);
+    }
     StateProxy state_proxy(&state);
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
         remove_meta_information(state_proxy);
@@ -132,10 +148,16 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
 }
 
 void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &search_space) {
-    if (g_memory_tracking_allocated < memory_limit) {
+    if (!incremental_computation || g_memory_tracking_allocated < memory_limit) {
         return;
     }
     int n = saved_landmarks_map.size();
+    if (n <= 1) {
+        cout << "Memory bounds allows to store only one landmark. Switching to non-incremental LM-cut." << endl;
+        incremental_computation = false;
+        saved_landmarks_map.clear();
+        return;
+    }
     cout << "Freeing memory by deleting meta information ... ";
     // try to find the nodes with maximal f value
     vector<pair<int, StateProxy> > states_by_f_value;

@@ -29,6 +29,7 @@ struct ComparePairByFirstComponent {
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
 private:
+    bool incremental_computation;
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
