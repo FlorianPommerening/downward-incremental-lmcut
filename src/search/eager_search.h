@@ -21,7 +21,6 @@ class EagerSearch : public SearchEngine {
     bool reopen_closed_nodes; // whether to reopen closed nodes upon finding lower g paths
     bool do_pathmax; // whether to use pathmax correction
     bool use_multi_path_dependence;
-    bool mark_children_as_finished;
 
     OpenList<state_var_t *> *open_list;
     ScalarEvaluator *f_evaluator;

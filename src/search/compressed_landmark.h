@@ -46,6 +46,7 @@ public:
     ~CompressedLandmark();
     Landmark decompress();
     static void set_operators(const std::vector<RelaxedOperator> &relaxed_operators_);
+    static CompressedLandmark EMPTY;
 };
 
 #endif

@@ -29,7 +29,10 @@ struct ComparePairByFirstComponent {
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
 private:
-    bool incremental_computation;
+    // special case for local computation: avoid compressing and decompressing landmarks
+    bool local_computation_on;
+    bool reevaluating_parent;
+
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
@@ -38,7 +41,11 @@ private:
         saved_landmarks_map.erase(state_proxy);
     }
     std::vector<Landmark> current_decompressed_landmarks;
-    const State *current_state;
+    std::vector<std::pair<Landmark, CompressedLandmark> > parent_landmarks;
+    StateProxy current_state_proxy;
+    int current_landmarks_cost;
+    StateProxy current_parent_state_proxy;
+    bool get_parent_landmarks(const State &parent_state);
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,

@@ -183,4 +183,4 @@ void CompressedLandmark::decompress_bit_array(const Header& header, uint32_t *p_
 const std::vector<RelaxedOperator> *CompressedLandmark::RELAXED_OPERATORS = 0;
 uint32_t CompressedLandmark::MASK = 0;
 int CompressedLandmark::OPERATOR_WORD_LENGTH = 0;
-
+CompressedLandmark CompressedLandmark::EMPTY = CompressedLandmark(vector<RelaxedOperator*>(), -1);
