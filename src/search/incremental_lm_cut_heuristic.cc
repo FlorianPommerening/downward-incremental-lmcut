@@ -58,7 +58,7 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     // Redo cost changes of current landmarks (if there are no current landmarks,
     // this will just reset all costs to base costs)
     LandmarkCutHeuristic::reset_operator_costs(state);
-    assert(current_decompressed_landmarks.empty() || StateProxy(state) == current_state);
+    assert(current_decompressed_landmarks.empty() || StateProxy(&state) == current_state_proxy);
     for (vector<Landmark>::iterator it_landmark = current_decompressed_landmarks.begin(); it_landmark != current_decompressed_landmarks.end(); ++it_landmark) {
         Landmark &landmark = *it_landmark;
         for (Landmark::iterator it_op = landmark.begin(); it_op != landmark.end(); ++it_op) {
