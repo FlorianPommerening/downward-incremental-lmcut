@@ -54,6 +54,14 @@ public:
     // End of HACK
 
 
+    // HACK
+    std::list<state_var_t *>::iterator get_fringe_it() const {
+        return info.fringe_it;
+    }
+    void set_fringe_it(std::list<state_var_t *>::iterator it) {
+        info.fringe_it = it;
+    }
+
     const state_var_t *get_parent_buffer() const;
 
     void open_initial(int h);
