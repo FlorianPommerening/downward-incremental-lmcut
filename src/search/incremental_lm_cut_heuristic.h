@@ -39,13 +39,22 @@ struct ComparePairByFirstComponent {
 
 class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
 private:
+    bool local_incremental_computation;
+    bool landmarks_belong_to_parent;
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
+    StateProxy current_state_proxy;
+    int current_landmarks_cost;
+    SavedLandmarks default_landmarks;
+    SavedLandmarks *current_landmarks;
+    StateProxy current_parent_state_proxy;
+    SavedLandmarks current_parent_landmarks;
     SavedLandmarksMap saved_landmarks_map;
     void remove_meta_information(StateProxy &state_proxy) {
         saved_landmarks_map.erase(state_proxy);
     }
+    bool compute_parent_landmarks(const State &parent_state);
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
