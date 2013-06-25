@@ -39,21 +39,6 @@ public:
     int get_real_g() const;
     int get_h() const;
 
-
-    // HACK
-    void set_layer(int _layer) const {
-        info.layer = _layer;
-    }
-    int get_layer() const {
-        return info.layer;
-    }
-    void reopen() {
-        // reopen without changing the parent
-        info.status = SearchNodeInfo::OPEN;
-    }
-    // End of HACK
-
-
     const state_var_t *get_parent_buffer() const;
 
     void open_initial(int h);
