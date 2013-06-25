@@ -47,6 +47,9 @@ int FringeSearch::step() {
         if (f > f_limit) {
             f_min = min(f, f_min);
             ++it;
+            // HACK try to maintain only landmark information for boundary nodes
+            // only useful for incremental lmcut atm
+            heuristic->finished_state(s, node.get_real_g() + node.get_h(), false);
             continue;
         }
         if (check_goal_and_set_plan(s)) {
@@ -55,6 +58,9 @@ int FringeSearch::step() {
         vector<const Operator *> applicable_ops;
         g_successor_generator->generate_applicable_ops(s, applicable_ops);
         for (int i = applicable_ops.size() - 1; i >= 0; i--) {
+            // HACK: should call this whenever memory is about to run out
+            heuristic->free_up_memory(search_space);
+
             const Operator *op = applicable_ops[i];
             if ((node.get_real_g() + op->get_cost()) >= bound)
                 continue;
@@ -75,6 +81,7 @@ int FringeSearch::step() {
                 if (heuristic->is_dead_end()) {
                     succ_node.mark_as_dead_end();
                     search_progress.inc_dead_ends();
+                    heuristic->finished_state(succ_node.get_state(), -1, false);
                     continue;
                 }
                 int succ_h = heuristic->get_heuristic();
@@ -99,7 +106,7 @@ int FringeSearch::step() {
         ++next_it;
         fringe.erase(it);
         it = next_it;
-        // HACK try to maintain only met information for boundary nodes
+        // HACK try to maintain only landmark information for boundary nodes
         // only useful for incremental lmcut atm
         heuristic->finished_state(s, node.get_real_g() + node.get_h(), false);
     }
