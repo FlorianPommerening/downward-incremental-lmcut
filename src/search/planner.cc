@@ -6,6 +6,8 @@
 #include "utilities.h"
 #include "search_engine.h"
 
+// HACK
+#include "memory_tracking_allocator.h"
 
 #include <iostream>
 using namespace std;
@@ -44,6 +46,10 @@ int main(int argc, const char **argv) {
     engine->save_plan_if_necessary();
     engine->statistics();
     engine->heuristic_statistics();
+
+    //HACK
+    cout << "Tracked memory: " << g_memory_tracking_allocated / 1024 << " KB" << endl;
+
     cout << "Search time: " << search_timer << endl;
     cout << "Total time: " << g_timer << endl;
 

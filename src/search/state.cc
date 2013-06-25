@@ -8,16 +8,25 @@
 #include <algorithm>
 #include <iostream>
 #include <cassert>
+
+// HACK
+#include "memory_tracking_allocator.h"
+
 using namespace std;
 
 void State::_allocate() {
     borrowed_buffer = false;
     vars = new state_var_t[g_variable_domain.size()];
+    // HACK should automatically keep track of new and delete.
+    g_memory_tracking_allocated += (g_variable_domain.size()) * sizeof(state_var_t);
 }
 
 void State::_deallocate() {
-    if (!borrowed_buffer)
+    if (!borrowed_buffer) {
         delete[] vars;
+        // HACK should automatically keep track of new and delete.
+        g_memory_tracking_allocated -= (g_variable_domain.size()) * sizeof(state_var_t);
+    }
 }
 
 void State::_copy_buffer_from_state(const State &state) {

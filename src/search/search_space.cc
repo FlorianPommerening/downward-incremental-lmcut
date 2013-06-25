@@ -7,6 +7,9 @@
 #include "state_proxy.h"
 #include "search_node_info.h"
 
+//HACK
+#include "memory_tracking_allocator.h"
+
 using namespace std;
 using namespace __gnu_cxx;
 
@@ -163,6 +166,8 @@ SearchNode SearchSpace::get_node(const State &state) {
     if (result.second) {
         // This is a new entry: Must give the state permanent lifetime.
         result.first->first.make_permanent();
+        // HACK should automatically keep track of new and delete, but this never get deleted
+        g_memory_tracking_allocated += sizeof(_Hashtable_node<pair<StateProxy, SearchNodeInfo> >);
     }
     HashTable::iterator iter = result.first;
     return SearchNode(iter->first.state_data, iter->second, cost_type);

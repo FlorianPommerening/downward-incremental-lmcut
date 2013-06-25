@@ -6,6 +6,9 @@
 
 #include <ext/hash_map>
 
+//HACK
+#include "memory_tracking_allocator.h"
+
 
 class StateProxy {
     // This class is basically a pointer that can be reassigned even
@@ -48,6 +51,8 @@ public:
         for (int i = 0; i < g_variable_domain.size(); i++)
             new_buffer[i] = state_data[i];
         state_data = new_buffer;
+        // HACK should automatically keep track of new and delete, but this never get deleted
+        g_memory_tracking_allocated += (g_variable_domain.size()) * sizeof(state_var_t);
     }
 };
 
