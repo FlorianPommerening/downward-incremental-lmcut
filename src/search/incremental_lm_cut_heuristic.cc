@@ -30,7 +30,9 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       current_state_proxy(g_initial_state),
       current_landmarks_cost(0),
       current_landmarks(&default_landmarks),
-      current_parent_state_proxy(g_initial_state) {
+      current_parent_state_proxy(g_initial_state),
+      cache_hits(0),
+      min_cache_hits(opts.get<unsigned int>("min_cache_hits")) {
 }
 
 IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
@@ -87,6 +89,7 @@ bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &pare
         SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(parent_proxy);
         if (parent_node_info_it != saved_landmarks_map.end()) {
             current_parent_landmarks = parent_node_info_it->second;
+            cache_hits++;
             return true;
         }
     }
@@ -174,13 +177,15 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space
     }
     int n = saved_landmarks_map.size();
     saved_landmarks_map.clear();
-    if (n > 2) {
-        cout << "Freeing memory by deleting meta information for all " << n << " states." << endl;
-    } else {
-        cout << "Memory bounds allows to store landmarks for only two states. Switching to h^iLM-cut_local." << endl;
+    cout << "Cache hits since last reset: " << cache_hits << endl;
+    if (cache_hits < min_cache_hits) {
+        cout << "Switching to h^iLM-cut_local." << endl;
         local_incremental_computation = true;
         reevaluate_parent = true;
+    } else {
+        cout << "Freeing memory by deleting meta information for all " << n << " states." << endl;
     }
+    cache_hits = 0;
 }
 
 
@@ -189,6 +194,7 @@ static ScalarEvaluator *_parse(OptionParser &parser) {
     parser.add_option<bool>("keep_frontier",     false, "Landmarks for nodes on the search frontier are not removed if the node is closed.");
     parser.add_option<bool>("reevaluate_parent", false, "If a node is encountered where the parent node has no saved landmarks, the heuristic for the parent is recomputed. This is based on the assumption that siblings of this node will be expanded soon and will profit from the calculated parent info");
     parser.add_option<bool>("local", false, "Only use incremental computation locally, i.e. reevaluate the parent and then incrementally compute the child nodes. Automatically enables reevaluate_parent");
+    parser.add_option<unsigned int>("min_cache_hits",  0, "Switch from memory bounded computation to local incremental computation if there are not enough cache hits, i.e. states where the landmarks of the parent state are known. A value of 0 (default) never switches, a value of max int switches the first time memory is exhausted, a value of 2 switches when only the parent state is in the hash map.");
     Heuristic::add_options_to_parser(parser);
     Options opts = parser.parse();
     if (opts.get<bool>("local")) {
