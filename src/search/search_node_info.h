@@ -1,8 +1,6 @@
 #ifndef SEARCH_NODE_INFO_H
 #define SEARCH_NODE_INFO_H
 
-#include <list>
-
 #include "state.h"
 
 class SearchNodeInfo {
@@ -19,9 +17,6 @@ class SearchNodeInfo {
     const Operator *creating_operator;
     int real_g;
 
-
-    //HACK
-    std::list<state_var_t *>::iterator fringe_it;
     SearchNodeInfo()
         : status(NEW), g(-1), h(-1), h_is_dirty(false),
           parent_state(0), creating_operator(0), real_g(-1) {
