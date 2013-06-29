@@ -47,8 +47,7 @@ private:
     unsigned long memory_limit;
     StateProxy current_state_proxy;
     int current_landmarks_cost;
-    SavedLandmarks default_landmarks;
-    SavedLandmarks *current_landmarks;
+    SavedLandmarks current_landmarks;
     StateProxy current_parent_state_proxy;
     SavedLandmarks current_parent_landmarks;
     SavedLandmarksMap saved_landmarks_map;

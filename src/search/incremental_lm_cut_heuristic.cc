@@ -29,7 +29,6 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       memory_limit(opts.get<unsigned int>("memory_limit")),
       current_state_proxy(g_initial_state),
       current_landmarks_cost(0),
-      current_landmarks(&default_landmarks),
       current_parent_state_proxy(g_initial_state),
       cache_hits(0),
       min_cache_hits(opts.get<unsigned int>("min_cache_hits")) {
@@ -68,8 +67,7 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     LandmarkCutHeuristic::reset_operator_costs(state);
     if (!landmarks_belong_to_parent) {
         assert(StateProxy(&state) == current_state_proxy);
-        assert(current_landmarks);
-        for (SavedLandmarks::iterator it_landmark = current_landmarks->begin(); it_landmark != current_landmarks->end(); ++it_landmark) {
+        for (SavedLandmarks::iterator it_landmark = current_landmarks.begin(); it_landmark != current_landmarks.end(); ++it_landmark) {
             LandmarkPtr landmark = *it_landmark;
             for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
                 (*it_op)->cost -= landmark->cost;
@@ -79,21 +77,26 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
 }
 
 bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &parent_state) {
-    StateProxy parent_proxy = StateProxy(&parent_state);
-    if (parent_proxy == current_parent_state_proxy) {
+    StateProxy new_parent_proxy = StateProxy(&parent_state);
+    StateProxy old_parent_proxy = current_parent_state_proxy;
+    if (new_parent_proxy == old_parent_proxy) {
         return true;
     }
-    current_parent_landmarks.clear();
-    current_parent_state_proxy = parent_proxy;
+    current_parent_state_proxy = new_parent_proxy;
 
-    if (!local_incremental_computation) {
-        SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(parent_proxy);
+    if (local_incremental_computation) {
+        current_parent_landmarks.clear();
+    } else {
+        saved_landmarks_map[old_parent_proxy].swap(current_parent_landmarks);
+        assert(current_parent_landmarks.empty());
+        SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(new_parent_proxy);
         if (parent_node_info_it != saved_landmarks_map.end()) {
-            current_parent_landmarks = parent_node_info_it->second;
+            current_parent_landmarks.swap(parent_node_info_it->second);
             cache_hits++;
             return true;
         }
     }
+
     if (reevaluate_parent) {
         landmarks_belong_to_parent = true;
         compute_heuristic(parent_state);
@@ -106,15 +109,9 @@ bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &pare
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
     current_state_proxy = StateProxy(&state);
     current_landmarks_cost = 0;
+    current_landmarks.clear();
+    assert(local_incremental_computation || saved_landmarks_map[current_state_proxy].empty());
     bool h_dirty = false;
-
-    if (local_incremental_computation) {
-        current_landmarks = &default_landmarks;
-        default_landmarks.clear();
-    } else {
-        current_landmarks = &saved_landmarks_map[current_state_proxy];
-    }
-    assert(current_landmarks);
 
     if (!compute_parent_landmarks(parent_state)) {
         return h_dirty;
@@ -133,7 +130,7 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
             }
         }
         if (copy_landmark) {
-            current_landmarks->push_back(landmark);
+            current_landmarks.push_back(landmark);
             current_landmarks_cost += landmark->cost;
         }
     }
@@ -152,22 +149,27 @@ void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f
 }
 
 void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost) {
+    ((void) state); // Avoid 'unused parameter' warning in release build
     LandmarkPtr createdLandmark(new Landmark(landmark, cost));
     if (landmarks_belong_to_parent) {
+        assert(StateProxy(&state) == current_parent_state_proxy);
         current_parent_landmarks.push_back(createdLandmark);
     } else {
+        assert(StateProxy(&state) == current_state_proxy);
         current_landmarks_cost += cost;
-    }
-    if (!local_incremental_computation) {
-        saved_landmarks_map[StateProxy(&state)].push_back(createdLandmark);
+        current_landmarks.push_back(createdLandmark);
     }
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
-    StateProxy state_proxy(&state);
+    assert(StateProxy(&state) == current_state_proxy);
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
-        remove_meta_information(state_proxy);
+        remove_meta_information(current_state_proxy);
         return DEAD_END;
+    }
+    if (!local_incremental_computation) {
+        saved_landmarks_map[current_state_proxy].swap(current_landmarks);
+        assert(current_landmarks.empty());
     }
     return current_landmarks_cost;
 }
