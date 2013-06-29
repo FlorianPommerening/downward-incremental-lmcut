@@ -57,6 +57,7 @@ private:
     bool compute_parent_landmarks(const State &parent_state);
     int cache_hits;
     unsigned int min_cache_hits;
+    bool released_memory;
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,

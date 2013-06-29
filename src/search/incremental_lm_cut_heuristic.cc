@@ -31,7 +31,8 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       current_landmarks_cost(0),
       current_parent_state_proxy(g_initial_state),
       cache_hits(0),
-      min_cache_hits(opts.get<unsigned int>("min_cache_hits")) {
+      min_cache_hits(opts.get<unsigned int>("min_cache_hits")),
+      released_memory(false) {
     g_memory_releasers.push_back(this);
 }
 
@@ -175,31 +176,34 @@ int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
 }
 
 void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space*/) {
-    if (local_incremental_computation || g_memory_tracking_allocated < memory_limit) {
-        return;
+    if (released_memory ||
+            (!local_incremental_computation && g_memory_tracking_allocated >= memory_limit)) {
+        released_memory = false;
+        int n = saved_landmarks_map.size();
+        saved_landmarks_map.clear();
+        cout << "Cache hits since last reset: " << cache_hits << endl;
+        if (!local_incremental_computation && cache_hits < min_cache_hits) {
+            cout << "Switching to h^iLM-cut_local." << endl;
+            local_incremental_computation = true;
+            reevaluate_parent = true;
+            // saved_landmarks_map is not needed any more, free its memory
+            SavedLandmarksMap tmp(0);
+            saved_landmarks_map.swap(tmp);
+        } else {
+            cout << "Freeing memory by deleting meta information for all " << n << " states." << endl;
+        }
+        cache_hits = 0;
     }
-    int n = saved_landmarks_map.size();
-    saved_landmarks_map.clear();
-    cout << "Cache hits since last reset: " << cache_hits << endl;
-    if (!local_incremental_computation && cache_hits < min_cache_hits) {
-        cout << "Switching to h^iLM-cut_local." << endl;
-        local_incremental_computation = true;
-        reevaluate_parent = true;
-        // saved_landmarks_map is not needed any more, free its memory
-        SavedLandmarksMap tmp(0);
-        saved_landmarks_map.swap(tmp);
-    } else {
-        cout << "Freeing memory by deleting meta information for all " << n << " states." << endl;
-    }
-    cache_hits = 0;
 }
 
 bool IncrementalLandmarkCutHeuristic::release_memory() {
-    cout << "Tracked memory: " << g_memory_tracking_allocated;
-    bool freed_memory = saved_landmarks_map.size() > 0;
+    unsigned long memory_before = g_memory_tracking_allocated;
+    cout << "Tracked memory: " << memory_before;
     saved_landmarks_map.clear();
     cout << " --> " << g_memory_tracking_allocated << endl;
-    return freed_memory;
+    bool result = (memory_before > g_memory_tracking_allocated);
+    released_memory |= result;
+    return result;
 }
 
 static ScalarEvaluator *_parse(OptionParser &parser) {
