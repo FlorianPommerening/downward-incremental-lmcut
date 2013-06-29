@@ -4,6 +4,7 @@
 #include "lm_cut_heuristic.h"
 #include "state_proxy.h"
 #include "search_space.h"
+#include "utilities.h"
 #include "memory_tracking_allocator.h"
 
 #include <boost/shared_ptr.hpp>
@@ -37,7 +38,7 @@ struct ComparePairByFirstComponent {
     }
 };
 
-class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic {
+class IncrementalLandmarkCutHeuristic : public LandmarkCutHeuristic, public MemoryReleaser {
 private:
     bool local_incremental_computation;
     bool landmarks_belong_to_parent;
@@ -70,6 +71,7 @@ public:
     IncrementalLandmarkCutHeuristic(const Options &opts);
     virtual ~IncrementalLandmarkCutHeuristic();
     virtual void free_up_memory(SearchSpace &search_space);
+    virtual bool release_memory();
 };
 
 

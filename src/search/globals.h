@@ -18,6 +18,12 @@ class State;
 class SuccessorGenerator;
 class Timer;
 
+
+class MemoryReleaser {
+public:
+    virtual bool release_memory() = 0;
+};
+
 bool test_goal(const State &state);
 void save_plan(const std::vector<const Operator *> &plan, int iter);
 int calculate_plan_cost(const std::vector<const Operator *> &plan);
@@ -55,5 +61,6 @@ extern LegacyCausalGraph *g_legacy_causal_graph;
 extern Timer g_timer;
 extern std::string g_plan_filename;
 extern RandomNumberGenerator g_rng;
+extern std::vector<MemoryReleaser*> g_memory_releasers;
 
 #endif

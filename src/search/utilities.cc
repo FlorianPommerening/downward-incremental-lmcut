@@ -1,5 +1,7 @@
 #include "utilities.h"
 
+#include "globals.h"
+
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
@@ -17,7 +19,7 @@ static void exit_handler();
 // nothing
 #endif
 
-static char *memory_padding = new char[1024];
+static char *memory_padding = new char[2048];
 
 static void out_of_memory_handler();
 static void signal_handler(int signal_number);
@@ -87,10 +89,18 @@ void exit_with(ExitCode exitcode) {
 }
 
 static void out_of_memory_handler() {
+    cout << "Failed to allocate memory. ";
+    for (int i = 0; i < g_memory_releasers.size(); ++i) {
+        MemoryReleaser *memory_releaser = g_memory_releasers[i];
+        if (memory_releaser->release_memory()) {
+            cout << "Released additional memory from source " << i << "." << endl;
+            return;
+        }
+    }
+    cout << "Released memory buffer." << endl;
     assert(memory_padding);
     delete[] memory_padding;
     memory_padding = 0;
-    cout << "Failed to allocate memory. Released memory buffer." << endl;
     exit_with(EXIT_OUT_OF_MEMORY);
 }
 

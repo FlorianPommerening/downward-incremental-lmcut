@@ -33,6 +33,7 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       current_parent_state_proxy(g_initial_state),
       cache_hits(0),
       min_cache_hits(opts.get<unsigned int>("min_cache_hits")) {
+    g_memory_releasers.push_back(this);
 }
 
 IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
@@ -178,16 +179,26 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space
     int n = saved_landmarks_map.size();
     saved_landmarks_map.clear();
     cout << "Cache hits since last reset: " << cache_hits << endl;
-    if (cache_hits < min_cache_hits) {
+    if (!local_incremental_computation && cache_hits < min_cache_hits) {
         cout << "Switching to h^iLM-cut_local." << endl;
         local_incremental_computation = true;
         reevaluate_parent = true;
+        // saved_landmarks_map is not needed any more, free its memory
+        SavedLandmarksMap tmp(0);
+        saved_landmarks_map.swap(tmp);
     } else {
         cout << "Freeing memory by deleting meta information for all " << n << " states." << endl;
     }
     cache_hits = 0;
 }
 
+bool IncrementalLandmarkCutHeuristic::release_memory() {
+    cout << "Tracked memory: " << g_memory_tracking_allocated;
+    bool freed_memory = saved_landmarks_map.size() > 0;
+    saved_landmarks_map.clear();
+    cout << " --> " << g_memory_tracking_allocated << endl;
+    return freed_memory;
+}
 
 static ScalarEvaluator *_parse(OptionParser &parser) {
     parser.add_option<unsigned int>("memory_limit",  0, "Maximum amount of memory (in MB) used for storing meta information. Use 0 (default) for no limit.");

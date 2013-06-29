@@ -341,3 +341,4 @@ LegacyCausalGraph *g_legacy_causal_graph;
 Timer g_timer;
 string g_plan_filename = "sas_plan";
 RandomNumberGenerator g_rng(2011); // Use an arbitrary default seed.
+vector<MemoryReleaser*> g_memory_releasers;
