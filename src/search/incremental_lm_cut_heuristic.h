@@ -58,6 +58,7 @@ private:
     int cache_hits;
     unsigned int min_cache_hits;
     bool released_memory;
+    SavedLandmarksMap *empty;
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,

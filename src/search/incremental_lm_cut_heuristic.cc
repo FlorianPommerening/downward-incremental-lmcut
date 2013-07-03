@@ -34,6 +34,7 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       min_cache_hits(opts.get<unsigned int>("min_cache_hits")),
       released_memory(false) {
     g_memory_releasers.push_back(this);
+    empty = new SavedLandmarksMap(0);
 }
 
 IncrementalLandmarkCutHeuristic::~IncrementalLandmarkCutHeuristic() {
@@ -199,7 +200,14 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space
 bool IncrementalLandmarkCutHeuristic::release_memory() {
     unsigned long memory_before = g_memory_tracking_allocated;
     cout << "Tracked memory: " << memory_before;
-    saved_landmarks_map.clear();
+    {
+        saved_landmarks_map.clear();
+        if (empty) {
+            saved_landmarks_map.swap(*empty);
+            delete empty;
+            empty = new SavedLandmarksMap(0);
+        }
+    }
     cout << " --> " << g_memory_tracking_allocated << endl;
     bool result = (memory_before > g_memory_tracking_allocated);
     released_memory |= result;
