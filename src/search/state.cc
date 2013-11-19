@@ -99,6 +99,8 @@ State &State::operator=(const State &other) {
         // Clean up the old value to avoid a memory leak.
         if (!borrowed_buffer) {
             delete[] vars;
+            // HACK should automatically keep track of new and delete.
+            g_memory_tracking_allocated -= (g_variable_domain.size()) * sizeof(state_var_t);
         }
 
         borrowed_buffer = other.borrowed_buffer;
