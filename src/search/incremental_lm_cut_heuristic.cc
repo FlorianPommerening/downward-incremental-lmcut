@@ -191,7 +191,7 @@ void IncrementalLandmarkCutHeuristic::free_up_memory(SearchSpace &/*search_space
 }
 
 
-static ScalarEvaluator *_parse(OptionParser &parser) {
+static Heuristic *_parse(OptionParser &parser) {
     parser.add_option<unsigned int>("memory_limit",
                                     "Maximum amount of memory (in MB) used for storing meta information. Use 0 (default) for no limit.",
                                     "0");
@@ -220,4 +220,4 @@ static ScalarEvaluator *_parse(OptionParser &parser) {
 }
 
 
-static Plugin<ScalarEvaluator> _plugin("incremental_lmcut", _parse);
+static Plugin<Heuristic> _plugin("incremental_lmcut", _parse);
