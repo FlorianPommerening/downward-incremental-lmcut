@@ -27,9 +27,9 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       keep_frontier(opts.get<bool>("keep_frontier")),
       reevaluate_parent(opts.get<bool>("reevaluate_parent")),
       memory_limit(opts.get<unsigned int>("memory_limit")),
-      current_state_proxy(g_initial_state),
+      current_state_handle(g_initial_state->get_handle()),
       current_landmarks_cost(0),
-      current_parent_state_proxy(g_initial_state),
+      current_parent_state_handle(g_initial_state->get_handle()),
       cache_hits(0),
       min_cache_hits(opts.get<unsigned int>("min_cache_hits")),
       released_memory(false) {
@@ -68,7 +68,7 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     // this will just reset all costs to base costs)
     LandmarkCutHeuristic::reset_operator_costs(state);
     if (!landmarks_belong_to_parent) {
-        assert(StateProxy(&state) == current_state_proxy);
+        assert(state.get_handle() == current_state_handle);
         for (SavedLandmarks::iterator it_landmark = current_landmarks.begin(); it_landmark != current_landmarks.end(); ++it_landmark) {
             LandmarkPtr landmark = *it_landmark;
             for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
@@ -79,19 +79,19 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
 }
 
 bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &parent_state) {
-    StateProxy new_parent_proxy = StateProxy(&parent_state);
-    StateProxy old_parent_proxy = current_parent_state_proxy;
-    if (new_parent_proxy == old_parent_proxy) {
+    StateHandle new_parent_handle = parent_state.get_handle();
+    StateHandle old_parent_handle = current_parent_state_handle;
+    if (new_parent_handle == old_parent_handle) {
         return true;
     }
-    current_parent_state_proxy = new_parent_proxy;
+    current_parent_state_handle = new_parent_handle;
 
     if (local_incremental_computation) {
         current_parent_landmarks.clear();
     } else {
-        saved_landmarks_map[old_parent_proxy].swap(current_parent_landmarks);
+        saved_landmarks_map[old_parent_handle].swap(current_parent_landmarks);
         assert(current_parent_landmarks.empty());
-        SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(new_parent_proxy);
+        SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(new_parent_handle);
         if (parent_node_info_it != saved_landmarks_map.end()) {
             current_parent_landmarks.swap(parent_node_info_it->second);
             cache_hits++;
@@ -109,10 +109,10 @@ bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &pare
 }
 
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
-    current_state_proxy = StateProxy(&state);
+    current_state_handle = state.get_handle();
     current_landmarks_cost = 0;
     current_landmarks.clear();
-    assert(local_incremental_computation || saved_landmarks_map[current_state_proxy].empty());
+    assert(local_incremental_computation || saved_landmarks_map[current_state_handle].empty());
     bool h_dirty = false;
 
     if (!compute_parent_landmarks(parent_state)) {
@@ -141,12 +141,12 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 
 void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f*/,
                                                      bool is_on_frontier) {
-    StateProxy proxy(&state);
+    StateHandle handle = state.get_handle();
     if (is_on_frontier && keep_frontier) {
         // TODO could also keep only a fixed amount of states (keep lower f values)
         return;
     } else {
-        remove_meta_information(proxy);
+        remove_meta_information(handle);
     }
 }
 
@@ -154,23 +154,23 @@ void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, ve
     ((void) state); // Avoid 'unused parameter' warning in release build
     LandmarkPtr createdLandmark(new Landmark(landmark, cost));
     if (landmarks_belong_to_parent) {
-        assert(StateProxy(&state) == current_parent_state_proxy);
+        assert(state.get_handle() == current_parent_state_handle);
         current_parent_landmarks.push_back(createdLandmark);
     } else {
-        assert(StateProxy(&state) == current_state_proxy);
+        assert(state.get_handle() == current_state_handle);
         current_landmarks_cost += cost;
         current_landmarks.push_back(createdLandmark);
     }
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
-    assert(StateProxy(&state) == current_state_proxy);
+    assert(state.get_handle() == current_state_handle);
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
-        remove_meta_information(current_state_proxy);
+        remove_meta_information(current_state_handle);
         return DEAD_END;
     }
     if (!local_incremental_computation) {
-        saved_landmarks_map[current_state_proxy].swap(current_landmarks);
+        saved_landmarks_map[current_state_handle].swap(current_landmarks);
         assert(current_landmarks.empty());
     }
     return current_landmarks_cost;
@@ -214,12 +214,22 @@ bool IncrementalLandmarkCutHeuristic::release_memory() {
     return result;
 }
 
-static ScalarEvaluator *_parse(OptionParser &parser) {
-    parser.add_option<unsigned int>("memory_limit",  0, "Maximum amount of memory (in MB) used for storing meta information. Use 0 (default) for no limit.");
-    parser.add_option<bool>("keep_frontier",     false, "Landmarks for nodes on the search frontier are not removed if the node is closed.");
-    parser.add_option<bool>("reevaluate_parent", false, "If a node is encountered where the parent node has no saved landmarks, the heuristic for the parent is recomputed. This is based on the assumption that siblings of this node will be expanded soon and will profit from the calculated parent info");
-    parser.add_option<bool>("local", false, "Only use incremental computation locally, i.e. reevaluate the parent and then incrementally compute the child nodes. Automatically enables reevaluate_parent");
-    parser.add_option<unsigned int>("min_cache_hits",  0, "Switch from memory bounded computation to local incremental computation if there are not enough cache hits, i.e. states where the landmarks of the parent state are known. A value of 0 (default) never switches, a value of max int switches the first time memory is exhausted, a value of 2 switches when only the parent state is in the hash map.");
+static Heuristic *_parse(OptionParser &parser) {
+    parser.add_option<unsigned int>("memory_limit",
+                                    "Maximum amount of memory (in MB) used for storing meta information. Use 0 (default) for no limit.",
+                                    "0");
+    parser.add_option<bool>("keep_frontier",
+                            "Landmarks for nodes on the search frontier are not removed if the node is closed.",
+                            "false");
+    parser.add_option<bool>("reevaluate_parent",
+                            "If a node is encountered where the parent node has no saved landmarks, the heuristic for the parent is recomputed. This is based on the assumption that siblings of this node will be expanded soon and will profit from the calculated parent info",
+                            "false");
+    parser.add_option<bool>("local",
+                            "Only use incremental computation locally, i.e. reevaluate the parent and then incrementally compute the child nodes. Automatically enables reevaluate_parent",
+                            "false");
+    parser.add_option<unsigned int>("min_cache_hits",
+                                    "Switch from memory bounded computation to local incremental computation if there are not enough cache hits, i.e. states where the landmarks of the parent state are known. A value of 0 (default) never switches, a value of max int switches the first time memory is exhausted, a value of 2 switches when only the parent state is in the hash map.",
+                                    "0");
     Heuristic::add_options_to_parser(parser);
     Options opts = parser.parse();
     if (opts.get<bool>("local")) {
@@ -233,4 +243,4 @@ static ScalarEvaluator *_parse(OptionParser &parser) {
 }
 
 
-static Plugin<ScalarEvaluator> _plugin("incremental_lmcut", _parse);
+static Plugin<Heuristic> _plugin("incremental_lmcut", _parse);

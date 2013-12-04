@@ -2,7 +2,7 @@
 #define INCREMENTAL_LM_CUT_HEURISTIC_H
 
 #include "lm_cut_heuristic.h"
-#include "state_proxy.h"
+#include "state_handle.h"
 #include "search_space.h"
 #include "utilities.h"
 #include "memory_tracking_allocator.h"
@@ -12,28 +12,28 @@
 
 // wraps vector<RelaxedOperator *> to add costs
 // adding or removing operators after creation does *not* update costs (not implemented)
-class Landmark : public vector<RelaxedOperator *, MemoryTrackingAllocator<RelaxedOperator *> > {
+class Landmark : public std::vector<RelaxedOperator *, MemoryTrackingAllocator<RelaxedOperator *> > {
 public:
     int cost;
     Landmark(vector<RelaxedOperator *> &operators, int cost);
 };
 
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
-typedef vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > SavedLandmarks;
+typedef std::vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > SavedLandmarks;
 
 
 
-typedef __gnu_cxx::hash_map<StateProxy,
+typedef __gnu_cxx::hash_map<StateHandle,
                             SavedLandmarks,
-                            __gnu_cxx::hash<StateProxy>,
-                            equal_to<StateProxy>,
-                            MemoryTrackingAllocator<std::pair<const StateProxy,
+                            __gnu_cxx::hash<StateHandle>,
+                            std::equal_to<StateHandle>,
+                            MemoryTrackingAllocator<std::pair<const StateHandle,
                                                               SavedLandmarks> > >
         SavedLandmarksMap;
 
 template<class T1, class T2>
 struct ComparePairByFirstComponent {
-    bool operator()(pair<T1, T2> const &lhs, pair<T1, T2> const &rhs) {
+    bool operator()(std::pair<T1, T2> const &lhs, std::pair<T1, T2> const &rhs) {
         return lhs.first < rhs.first;
     }
 };
@@ -45,14 +45,14 @@ private:
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
-    StateProxy current_state_proxy;
+    StateHandle current_state_handle;
     int current_landmarks_cost;
     SavedLandmarks current_landmarks;
-    StateProxy current_parent_state_proxy;
+    StateHandle current_parent_state_handle;
     SavedLandmarks current_parent_landmarks;
     SavedLandmarksMap saved_landmarks_map;
-    void remove_meta_information(StateProxy &state_proxy) {
-        saved_landmarks_map.erase(state_proxy);
+    void remove_meta_information(StateHandle &state_handle) {
+        saved_landmarks_map.erase(state_handle);
     }
     bool compute_parent_landmarks(const State &parent_state);
     int cache_hits;
@@ -65,7 +65,7 @@ protected:
                              const State &state);
     virtual void finished_state(const State &state, int f, bool is_on_frontier);
 
-    virtual void discovered_landmark(const State &state, vector<RelaxedOperator *> &landmark, int cost);
+    virtual void discovered_landmark(const State &state, std::vector<RelaxedOperator *> &landmark, int cost);
     virtual void reset_operator_costs(const State &state);
     virtual int compute_heuristic(const State &state);
 public:
