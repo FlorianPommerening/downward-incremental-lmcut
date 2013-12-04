@@ -9,13 +9,14 @@
 
 #include <boost/shared_ptr.hpp>
 #include <ext/hash_map>
+#include <vector>
 
 // wraps vector<RelaxedOperator *> to add costs
 // adding or removing operators after creation does *not* update costs (not implemented)
 class Landmark : public std::vector<RelaxedOperator *, MemoryTrackingAllocator<RelaxedOperator *> > {
 public:
     int cost;
-    Landmark(vector<RelaxedOperator *> &operators, int cost);
+    Landmark(std::vector<RelaxedOperator *> &operators, int cost);
 };
 
 typedef boost::shared_ptr<Landmark> LandmarkPtr;
