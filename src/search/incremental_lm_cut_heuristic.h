@@ -44,7 +44,6 @@ private:
     bool landmarks_belong_to_parent;
     bool keep_frontier;
     bool reevaluate_parent;
-    unsigned long memory_limit;
     StateHandle current_state_handle;
     int current_landmarks_cost;
     SavedLandmarks current_landmarks;
@@ -55,10 +54,8 @@ private:
         saved_landmarks_map.erase(state_handle);
     }
     bool compute_parent_landmarks(const State &parent_state);
-    int cache_hits;
-    unsigned int min_cache_hits;
-    bool released_memory;
-    SavedLandmarksMap *empty;
+    bool switch_to_local;
+    char *memory_padding;
 protected:
     virtual void initialize();
     virtual bool reach_state(const State &parent_state, const Operator &op,
