@@ -5,14 +5,12 @@
 #include "variable_order_finder.h"
 
 #include "../globals.h"
-#include "../operator.h"
 #include "../option_parser.h"
 #include "../plugin.h"
 #include "../state.h"
 #include "../timer.h"
 
 #include <cassert>
-#include <limits>
 #include <vector>
 using namespace std;
 
@@ -193,8 +191,7 @@ void MergeAndShrinkHeuristic::initialize() {
     }
 
     cout << "Done initializing merge-and-shrink heuristic [" << timer << "]"
-         << endl << "initial h value: " << compute_heuristic(
-        *g_initial_state) << endl;
+         << endl << "initial h value: " << compute_heuristic(g_initial_state()) << endl;
     cout << "Estimated peak memory for abstraction: " << peak_memory << " bytes" << endl;
 }
 
