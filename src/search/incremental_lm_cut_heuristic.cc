@@ -27,9 +27,9 @@ IncrementalLandmarkCutHeuristic::IncrementalLandmarkCutHeuristic(const Options &
       keep_frontier(opts.get<bool>("keep_frontier")),
       reevaluate_parent(opts.get<bool>("reevaluate_parent")),
       memory_limit(opts.get<unsigned int>("memory_limit")),
-      current_state_handle(g_initial_state->get_handle()),
+      current_state_id(g_initial_state().get_id()),
       current_landmarks_cost(0),
-      current_parent_state_handle(g_initial_state->get_handle()),
+      current_parent_state_id(g_initial_state().get_id()),
       cache_hits(0),
       min_cache_hits(opts.get<unsigned int>("min_cache_hits")) {
 }
@@ -65,7 +65,7 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
     // this will just reset all costs to base costs)
     LandmarkCutHeuristic::reset_operator_costs(state);
     if (!landmarks_belong_to_parent) {
-        assert(state.get_handle() == current_state_handle);
+        assert(state.get_id() == current_state_id);
         for (SavedLandmarks::iterator it_landmark = current_landmarks.begin(); it_landmark != current_landmarks.end(); ++it_landmark) {
             LandmarkPtr landmark = *it_landmark;
             for (Landmark::iterator it_op = landmark->begin(); it_op != landmark->end(); ++it_op) {
@@ -76,19 +76,19 @@ void IncrementalLandmarkCutHeuristic::reset_operator_costs(const State &state) {
 }
 
 bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &parent_state) {
-    StateHandle new_parent_handle = parent_state.get_handle();
-    StateHandle old_parent_handle = current_parent_state_handle;
-    if (new_parent_handle == old_parent_handle) {
+    StateID new_parent_id = parent_state.get_id();
+    StateID old_parent_id = current_parent_state_id;
+    if (new_parent_id == old_parent_id) {
         return true;
     }
-    current_parent_state_handle = new_parent_handle;
+    current_parent_state_id = new_parent_id;
 
     if (local_incremental_computation) {
         current_parent_landmarks.clear();
     } else {
-        saved_landmarks_map[old_parent_handle].swap(current_parent_landmarks);
+        saved_landmarks_map[old_parent_id].swap(current_parent_landmarks);
         assert(current_parent_landmarks.empty());
-        SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(new_parent_handle);
+        SavedLandmarksMap::iterator parent_node_info_it = saved_landmarks_map.find(new_parent_id);
         if (parent_node_info_it != saved_landmarks_map.end()) {
             current_parent_landmarks.swap(parent_node_info_it->second);
             cache_hits++;
@@ -106,10 +106,10 @@ bool IncrementalLandmarkCutHeuristic::compute_parent_landmarks(const State &pare
 }
 
 bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, const Operator &op, const State &state) {
-    current_state_handle = state.get_handle();
+    current_state_id = state.get_id();
     current_landmarks_cost = 0;
     current_landmarks.clear();
-    assert(local_incremental_computation || saved_landmarks_map[current_state_handle].empty());
+    assert(local_incremental_computation || saved_landmarks_map[current_state_id].empty());
     bool h_dirty = false;
 
     if (!compute_parent_landmarks(parent_state)) {
@@ -138,12 +138,12 @@ bool IncrementalLandmarkCutHeuristic::reach_state(const State &parent_state, con
 
 void IncrementalLandmarkCutHeuristic::finished_state(const State &state, int /*f*/,
                                                      bool is_on_frontier) {
-    StateHandle handle = state.get_handle();
+    StateID id = state.get_id();
     if (is_on_frontier && keep_frontier) {
         // TODO could also keep only a fixed amount of states (keep lower f values)
         return;
     } else {
-        remove_meta_information(handle);
+        remove_meta_information(id);
     }
 }
 
@@ -151,23 +151,23 @@ void IncrementalLandmarkCutHeuristic::discovered_landmark(const State &state, ve
     ((void) state); // Avoid 'unused parameter' warning in release build
     LandmarkPtr createdLandmark(new Landmark(landmark, cost));
     if (landmarks_belong_to_parent) {
-        assert(state.get_handle() == current_parent_state_handle);
+        assert(state.get_id() == current_parent_state_id);
         current_parent_landmarks.push_back(createdLandmark);
     } else {
-        assert(state.get_handle() == current_state_handle);
+        assert(state.get_id() == current_state_id);
         current_landmarks_cost += cost;
         current_landmarks.push_back(createdLandmark);
     }
 }
 
 int IncrementalLandmarkCutHeuristic::compute_heuristic(const State &state) {
-    assert(state.get_handle() == current_state_handle);
+    assert(state.get_id() == current_state_id);
     if (LandmarkCutHeuristic::compute_heuristic(state) == DEAD_END) {
-        remove_meta_information(current_state_handle);
+        remove_meta_information(current_state_id);
         return DEAD_END;
     }
     if (!local_incremental_computation) {
-        saved_landmarks_map[current_state_handle].swap(current_landmarks);
+        saved_landmarks_map[current_state_id].swap(current_landmarks);
         assert(current_landmarks.empty());
     }
     return current_landmarks_cost;

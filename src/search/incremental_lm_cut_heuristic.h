@@ -2,7 +2,7 @@
 #define INCREMENTAL_LM_CUT_HEURISTIC_H
 
 #include "lm_cut_heuristic.h"
-#include "state_handle.h"
+#include "state_id.h"
 #include "search_space.h"
 #include "memory_tracking_allocator.h"
 
@@ -22,11 +22,11 @@ typedef std::vector<LandmarkPtr, MemoryTrackingAllocator<LandmarkPtr> > SavedLan
 
 
 
-typedef __gnu_cxx::hash_map<StateHandle,
+typedef __gnu_cxx::hash_map<StateID,
                             SavedLandmarks,
-                            __gnu_cxx::hash<StateHandle>,
-                            std::equal_to<StateHandle>,
-                            MemoryTrackingAllocator<std::pair<const StateHandle,
+                            __gnu_cxx::hash<StateID>,
+                            std::equal_to<StateID>,
+                            MemoryTrackingAllocator<std::pair<const StateID,
                                                               SavedLandmarks> > >
         SavedLandmarksMap;
 
@@ -44,14 +44,14 @@ private:
     bool keep_frontier;
     bool reevaluate_parent;
     unsigned long memory_limit;
-    StateHandle current_state_handle;
+    StateID current_state_id;
     int current_landmarks_cost;
     SavedLandmarks current_landmarks;
-    StateHandle current_parent_state_handle;
+    StateID current_parent_state_id;
     SavedLandmarks current_parent_landmarks;
     SavedLandmarksMap saved_landmarks_map;
-    void remove_meta_information(StateHandle &state_handle) {
-        saved_landmarks_map.erase(state_handle);
+    void remove_meta_information(StateID &id) {
+        saved_landmarks_map.erase(id);
     }
     bool compute_parent_landmarks(const State &parent_state);
     int cache_hits;
