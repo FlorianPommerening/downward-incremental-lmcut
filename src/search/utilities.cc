@@ -1,6 +1,7 @@
 #include "utilities.h"
 
 #include "globals.h"
+#include "state_registry.h"
 
 #include <csignal>
 #include <cstdlib>
@@ -94,13 +95,15 @@ static void out_of_memory_handler() {
         MemoryReleaser *memory_releaser = g_memory_releasers[i];
         if (memory_releaser->release_memory()) {
             cout << "Released additional memory from source " << i << "." << endl;
+            cout << "Number of registered states: " << g_state_registry->size() << endl;
             return;
         }
     }
-    cout << "Released memory buffer." << endl;
     assert(memory_padding);
     delete[] memory_padding;
     memory_padding = 0;
+    cout << "Released memory buffer." << endl;
+    cout << "Number of registered states: " << g_state_registry->size() << endl;
     exit_with(EXIT_OUT_OF_MEMORY);
 }
 
